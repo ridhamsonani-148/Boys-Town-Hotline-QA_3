@@ -2,13 +2,15 @@
   "name": "boys-town-hotline-qa",
   "version": "0.1.0",
   "bin": {
-    "boys-town-hotline-qa": "bin/hotline-qa-app.js"
+    "boys-town-hotline-qa": "dist/bin/hotline-qa-app.js"
   },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
