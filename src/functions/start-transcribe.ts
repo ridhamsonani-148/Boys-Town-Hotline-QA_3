@@ -53,14 +53,14 @@ export const handler = async (event: S3Event): Promise<void> => {
           }
         ],
         DataAccessRoleArn: TRANSCRIBE_ROLE_ARN,
-        OutputLocation: `s3://${BUCKET_NAME}/transcripts/analytics/`
+        OutputLocation: `s3://${BUCKET_NAME}/transcripts/`
       });
 
       await transcribeClient.send(command);
       
       // Store the original filename in the output path for the format function to use
       // This ensures we can map back to the original filename regardless of the job name
-      const outputKey = `transcripts/analytics/filename-mapping/${fileNameWithoutExt}.txt`;
+      const outputKey = `transcripts/filename-mapping/${fileNameWithoutExt}.txt`;
       
       console.log(`Started Call Analytics job: ${jobName} for file: ${key}`);
     } catch (error) {

@@ -129,7 +129,7 @@ export class HotlineQaStack extends cdk.Stack {
     this.storageBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new s3n.LambdaDestination(formatFunction),
-      { prefix: 'transcripts/analytics/' }
+      { prefix: 'transcripts/analytics/', suffix: '.json' }
     );
     
     // Output the bucket name for reference
@@ -146,7 +146,7 @@ export class HotlineQaStack extends cdk.Stack {
     
     new cdk.CfnOutput(this, 'TranscriptsAnalyticsPrefix', {
       value: 'transcripts/analytics/',
-      description: 'S3 prefix for full transcription outputs',
+      description: 'S3 prefix for full transcription outputs (automatically created by AWS Transcribe)',
     });
     
     new cdk.CfnOutput(this, 'FormattedPrefix', {
