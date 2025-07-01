@@ -1,9 +1,8 @@
-import { S3Event } from 'aws-lambda';
 import { 
   TranscribeClient, 
-  StartCallAnalyticsJobCommand
+  StartCallAnalyticsJobCommand,
+  GetCallAnalyticsJobCommand
 } from '@aws-sdk/client-transcribe';
-import * as path from 'path';
 
 const transcribeClient = new TranscribeClient({});
 const { BUCKET_NAME, TRANSCRIBE_ROLE_ARN } = process.env;
@@ -12,60 +11,61 @@ if (!BUCKET_NAME || !TRANSCRIBE_ROLE_ARN) {
   throw new Error('Required environment variables BUCKET_NAME and TRANSCRIBE_ROLE_ARN must be set');
 }
 
-export const handler = async (event: S3Event): Promise<void> => {
-  for (const record of event.Records) {
-    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
-    if (!key.startsWith('records/')) {
-      console.log(`Skipping file not in records/ folder: ${key}`);
-      continue;
-    }
+// Input from Step Functions
+interface StepFunctionsEvent {
+  bucket: string;
+  key: string;
+  fileName: string;
+  fileNameWithoutExt: string;
+  timestamp: number;
+  jobName?: string;
+}
 
-    // Extract the original filename without extension
-    const fileName = path.basename(key);
-    const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-    
-    // Always append a timestamp to ensure unique job names
-    // This prevents "job already exists" errors when reprocessing files
-    const timestamp = Date.now();
-    const jobName = `${fileNameWithoutExt}-${timestamp}`;
-    
-    try {
-      // Start the transcription job
-      const command = new StartCallAnalyticsJobCommand({
-        CallAnalyticsJobName: jobName,
-        Media: {
-          MediaFileUri: `s3://${BUCKET_NAME}/${key}`
+export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsEvent> => {
+  console.log('Received event:', JSON.stringify(event, null, 2));
+  
+  const { bucket, key, fileNameWithoutExt, timestamp } = event;
+  
+  // Create a unique job name
+  const jobName = `${fileNameWithoutExt}-${timestamp}`;
+  
+  try {
+    // Start the transcription job
+    const command = new StartCallAnalyticsJobCommand({
+      CallAnalyticsJobName: jobName,
+      Media: {
+        MediaFileUri: `s3://${bucket}/${key}`
+      },
+      Settings: {
+        LanguageOptions: ['en-US'],
+        Summarization: {
+          GenerateAbstractiveSummary: true
+        }
+      },
+      ChannelDefinitions: [
+        {
+          ChannelId: 1,
+          ParticipantRole: 'AGENT'
         },
-        Settings: {
-          LanguageOptions: ['en-US'],
-          Summarization: {
-            GenerateAbstractiveSummary: true
-          }
-        },
-        ChannelDefinitions: [
-          {
-            ChannelId: 1,
-            ParticipantRole: 'AGENT'
-          },
-          {
-            ChannelId: 0,
-            ParticipantRole: 'CUSTOMER'
-          }
-        ],
-        DataAccessRoleArn: TRANSCRIBE_ROLE_ARN,
-        OutputLocation: `s3://${BUCKET_NAME}/transcripts/`
-      });
+        {
+          ChannelId: 0,
+          ParticipantRole: 'CUSTOMER'
+        }
+      ],
+      DataAccessRoleArn: TRANSCRIBE_ROLE_ARN,
+      OutputLocation: `s3://${bucket}/transcripts/`
+    });
 
-      await transcribeClient.send(command);
-      
-      // Store the original filename in the output path for the format function to use
-      // This ensures we can map back to the original filename regardless of the job name
-      const outputKey = `transcripts/filename-mapping/${fileNameWithoutExt}.txt`;
-      
-      console.log(`Started Call Analytics job: ${jobName} for file: ${key}`);
-    } catch (error) {
-      console.error(`Error starting Call Analytics job for ${key}:`, error);
-      throw error;
-    }
+    await transcribeClient.send(command);
+    console.log(`Started Call Analytics job: ${jobName} for file: ${key}`);
+    
+    // Return the updated event with the job name
+    return {
+      ...event,
+      jobName
+    };
+  } catch (error) {
+    console.error(`Error starting Call Analytics job for ${key}:`, error);
+    throw error;
   }
 };

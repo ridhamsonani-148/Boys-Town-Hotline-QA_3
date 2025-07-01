@@ -1,10 +1,8 @@
-import { S3Event } from 'aws-lambda';
 import { 
   S3Client, 
   GetObjectCommand, 
   PutObjectCommand 
 } from '@aws-sdk/client-s3';
-import * as path from 'path';
 
 const s3Client = new S3Client({});
 const { BUCKET_NAME } = process.env;
@@ -37,67 +35,64 @@ interface TranscribeOutput {
   }
 }
 
-export const handler = async (event: S3Event): Promise<void> => {
-  for (const record of event.Records) {
-    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
-    
-    // Only process files in the transcripts/analytics folder
-    if (!key.startsWith('transcripts/analytics/') || !key.endsWith('.json')) {
-      console.log(`Skipping file not in transcripts/analytics/ folder or not a JSON file: ${key}`);
-      continue;
-    }
+// Input from Step Functions
+interface StepFunctionsEvent {
+  bucket: string;
+  key: string;
+  fileName: string;
+  fileNameWithoutExt: string;
+  timestamp: number;
+  jobName: string;
+  transcriptKey: string;
+  formattedKey?: string;
+}
 
-    try {
-      // Get the original file
-      const getCommand = new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key
-      });
-      
-      const response = await s3Client.send(getCommand);
-      const body = await response.Body?.transformToString();
-      
-      if (!body) {
-        throw new Error(`Empty response body for ${key}`);
-      }
-      
-      // Parse the transcript JSON
-      const transcribeOutput: TranscribeOutput = JSON.parse(body);
-      
-      // Extract the filename without extension and timestamp
-      const fileName = path.basename(key);
-      
-      // Remove the timestamp from the filename (if present)
-      // The format is typically "originalname-timestamp.json"
-      let originalName = fileName;
-      const timestampMatch = fileName.match(/^(.+)-\d+\.json$/);
-      if (timestampMatch && timestampMatch[1]) {
-        originalName = timestampMatch[1];
-      } else {
-        // If no timestamp pattern found, just remove the extension
-        originalName = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-      }
-      
-      // Format the transcript
-      const formattedOutput = formatTranscript(transcribeOutput);
-      
-      // Save the formatted transcript to the root formatted/ folder
-      const formattedKey = `formatted/formatted_${originalName}.json`;
-      
-      const putCommand = new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: formattedKey,
-        Body: JSON.stringify(formattedOutput, null, 2),
-        ContentType: 'application/json'
-      });
-      
-      await s3Client.send(putCommand);
-      console.log(`Successfully formatted transcript and saved to ${formattedKey}`);
-      
-    } catch (error) {
-      console.error(`Error processing transcript ${key}:`, error);
-      throw error;
+export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsEvent> => {
+  console.log('Received event:', JSON.stringify(event, null, 2));
+  
+  const { bucket, transcriptKey, fileNameWithoutExt } = event;
+  
+  try {
+    // Get the transcript file
+    const getCommand = new GetObjectCommand({
+      Bucket: bucket,
+      Key: transcriptKey
+    });
+    
+    const response = await s3Client.send(getCommand);
+    const body = await response.Body?.transformToString();
+    
+    if (!body) {
+      throw new Error(`Empty response body for ${transcriptKey}`);
     }
+    
+    // Parse the transcript JSON
+    const transcribeOutput: TranscribeOutput = JSON.parse(body);
+    
+    // Format the transcript
+    const formattedOutput = formatTranscript(transcribeOutput);
+    
+    // Save the formatted transcript to the formatted/ folder
+    const formattedKey = `formatted/formatted_${fileNameWithoutExt}.json`;
+    
+    const putCommand = new PutObjectCommand({
+      Bucket: bucket,
+      Key: formattedKey,
+      Body: JSON.stringify(formattedOutput, null, 2),
+      ContentType: 'application/json'
+    });
+    
+    await s3Client.send(putCommand);
+    console.log(`Successfully formatted transcript and saved to ${formattedKey}`);
+    
+    // Return the updated event with the formatted key
+    return {
+      ...event,
+      formattedKey
+    };
+  } catch (error) {
+    console.error(`Error processing transcript ${transcriptKey}:`, error);
+    throw error;
   }
 };
 

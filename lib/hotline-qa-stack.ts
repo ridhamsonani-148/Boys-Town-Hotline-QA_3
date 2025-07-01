@@ -5,6 +5,8 @@ import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
+import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as path from 'path';
 
 export interface HotlineQaStackProps extends cdk.StackProps {
@@ -71,6 +73,15 @@ export class HotlineQaStack extends cdk.Stack {
       ]
     });
 
+    // Create Lambda function to start the workflow
+    const startWorkflowFunction = new lambdaNodejs.NodejsFunction(this, 'StartWorkflowFunction', {
+      entry: path.join(__dirname, '../src/functions/start-workflow.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      description: 'Starts the Step Functions workflow for processing call recordings',
+    });
+
     // Create Lambda function to start transcription jobs
     const transcribeFunction = new lambdaNodejs.NodejsFunction(this, 'TranscribeFunction', {
       entry: path.join(__dirname, '../src/functions/start-transcribe.ts'),
@@ -82,6 +93,15 @@ export class HotlineQaStack extends cdk.Stack {
         TRANSCRIBE_ROLE_ARN: transcribeRole.roleArn,
       },
       description: 'Starts Transcribe Call Analytics jobs for uploaded recordings',
+    });
+
+    // Create Lambda function to check transcription job status
+    const checkTranscribeStatusFunction = new lambdaNodejs.NodejsFunction(this, 'CheckTranscribeStatusFunction', {
+      entry: path.join(__dirname, '../src/functions/check-transcribe-status.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      description: 'Checks the status of Transcribe Call Analytics jobs',
     });
 
     // Create Lambda function to format transcription output
@@ -101,7 +121,7 @@ export class HotlineQaStack extends cdk.Stack {
       actions: [
         'transcribe:StartCallAnalyticsJob',
         'transcribe:GetCallAnalyticsJob',
-        'iam:PassRole', // Added PassRole permission
+        'iam:PassRole',
       ],
       resources: ['*'],
     }));
@@ -112,24 +132,77 @@ export class HotlineQaStack extends cdk.Stack {
       resources: [transcribeRole.roleArn],
     }));
 
+    // Grant check status function permission to use Transcribe
+    checkTranscribeStatusFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'transcribe:GetCallAnalyticsJob',
+      ],
+      resources: ['*'],
+    }));
+
     // Grant Lambda access to S3
     this.storageBucket.grantReadWrite(transcribeFunction);
-    
-    // Grant format function access to S3
+    this.storageBucket.grantReadWrite(checkTranscribeStatusFunction);
     this.storageBucket.grantReadWrite(formatFunction);
     
-    // Add S3 event notification to trigger transcribe function
-    this.storageBucket.addEventNotification(
-      s3.EventType.OBJECT_CREATED,
-      new s3n.LambdaDestination(transcribeFunction),
-      { prefix: 'records/' }
-    );
+    // Create Step Functions tasks
+    const startTranscribeTask = new tasks.LambdaInvoke(this, 'StartTranscribeJob', {
+      lambdaFunction: transcribeFunction,
+      outputPath: '$.Payload',
+    });
+
+    const checkTranscribeStatusTask = new tasks.LambdaInvoke(this, 'CheckTranscribeStatus', {
+      lambdaFunction: checkTranscribeStatusFunction,
+      outputPath: '$.Payload',
+    });
+
+    const formatTranscriptTask = new tasks.LambdaInvoke(this, 'FormatTranscript', {
+      lambdaFunction: formatFunction,
+      outputPath: '$.Payload',
+    });
+
+    // Create Step Functions workflow
+    const waitX = new sfn.Wait(this, 'Wait 30 Seconds', {
+      time: sfn.WaitTime.duration(cdk.Duration.seconds(30)),
+    });
+
+    const checkJobComplete = new sfn.Choice(this, 'Job Complete?');
+    const jobFailed = new sfn.Fail(this, 'Job Failed', {
+      cause: 'Transcribe job failed',
+      error: 'TranscribeJobFailed',
+    });
+
+    const definition = startTranscribeTask
+      .next(checkTranscribeStatusTask)
+      .next(
+        checkJobComplete
+          .when(sfn.Condition.isNotPresent('$.transcriptKey'), waitX.next(checkTranscribeStatusTask))
+          .otherwise(formatTranscriptTask)
+      );
+
+    const stateMachine = new sfn.StateMachine(this, 'HotlineQAWorkflow', {
+      definition,
+      timeout: cdk.Duration.minutes(30),
+    });
+
+    // Grant start workflow function permission to start executions
+    startWorkflowFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['states:StartExecution'],
+      resources: [stateMachine.stateMachineArn],
+    }));
+
+    // Set the state machine ARN in the start workflow function
+    startWorkflowFunction.addEnvironment('STATE_MACHINE_ARN', stateMachine.stateMachineArn);
+    startWorkflowFunction.addEnvironment('BUCKET_NAME', this.storageBucket.bucketName);
+
+    // Grant start workflow function access to S3
+    this.storageBucket.grantRead(startWorkflowFunction);
     
-    // Add S3 event notification to trigger format function
+    // Add S3 event notification to trigger the workflow
     this.storageBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
-      new s3n.LambdaDestination(formatFunction),
-      { prefix: 'transcripts/analytics/', suffix: '.json' }
+      new s3n.LambdaDestination(startWorkflowFunction),
+      { prefix: 'records/', suffix: '.wav' }
     );
     
     // Output the bucket name for reference
@@ -160,14 +233,30 @@ export class HotlineQaStack extends cdk.Stack {
     });
     
     // Output the Lambda function names for easier testing
+    new cdk.CfnOutput(this, 'StartWorkflowFunctionName', {
+      value: startWorkflowFunction.functionName,
+      description: 'Name of the Lambda function that starts the workflow',
+    });
+    
     new cdk.CfnOutput(this, 'TranscribeFunctionName', {
       value: transcribeFunction.functionName,
       description: 'Name of the Lambda function that starts transcription jobs',
     });
     
+    new cdk.CfnOutput(this, 'CheckTranscribeStatusFunctionName', {
+      value: checkTranscribeStatusFunction.functionName,
+      description: 'Name of the Lambda function that checks transcription job status',
+    });
+    
     new cdk.CfnOutput(this, 'FormatFunctionName', {
       value: formatFunction.functionName,
       description: 'Name of the Lambda function that formats transcription outputs',
+    });
+    
+    // Output the state machine ARN for reference
+    new cdk.CfnOutput(this, 'StateMachineArn', {
+      value: stateMachine.stateMachineArn,
+      description: 'ARN of the Step Functions state machine',
     });
   }
 }
