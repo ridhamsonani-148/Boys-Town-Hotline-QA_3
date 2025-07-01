@@ -116,6 +116,19 @@ export class HotlineQaStack extends cdk.Stack {
       description: 'Formats transcription output into a simplified format',
     });
 
+    // Create Lambda function for LLM analysis using Bedrock
+    const analyzeLLMFunction = new lambdaNodejs.NodejsFunction(this, 'AnalyzeLLMFunction', {
+      entry: path.join(__dirname, '../src/functions/analyze-llm.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.minutes(15), // Maximum Lambda timeout for long-running LLM calls
+      memorySize: 1024, // Increased memory for handling large transcripts
+      environment: {
+        BUCKET_NAME: this.storageBucket.bucketName,
+      },
+      description: 'Analyzes transcripts using Amazon Nova Lite',
+    });
+
     // Grant Lambda permissions to use Transcribe and PassRole
     transcribeFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: [
@@ -140,10 +153,19 @@ export class HotlineQaStack extends cdk.Stack {
       resources: ['*'],
     }));
 
+    // Grant LLM analysis function permission to use Bedrock
+    analyzeLLMFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'bedrock:InvokeModel',
+      ],
+      resources: ['*'], // You can scope this down to specific model ARNs if needed
+    }));
+
     // Grant Lambda access to S3
     this.storageBucket.grantReadWrite(transcribeFunction);
     this.storageBucket.grantReadWrite(checkTranscribeStatusFunction);
     this.storageBucket.grantReadWrite(formatFunction);
+    this.storageBucket.grantReadWrite(analyzeLLMFunction);
     
     // Create Step Functions tasks
     const startTranscribeTask = new tasks.LambdaInvoke(this, 'StartTranscribeJob', {
@@ -158,6 +180,11 @@ export class HotlineQaStack extends cdk.Stack {
 
     const formatTranscriptTask = new tasks.LambdaInvoke(this, 'FormatTranscript', {
       lambdaFunction: formatFunction,
+      outputPath: '$.Payload',
+    });
+
+    const analyzeLLMTask = new tasks.LambdaInvoke(this, 'AnalyzeLLM', {
+      lambdaFunction: analyzeLLMFunction,
       outputPath: '$.Payload',
     });
 
@@ -177,7 +204,7 @@ export class HotlineQaStack extends cdk.Stack {
       .next(
         checkJobComplete
           .when(sfn.Condition.isNotPresent('$.transcriptKey'), waitX.next(checkTranscribeStatusTask))
-          .otherwise(formatTranscriptTask)
+          .otherwise(formatTranscriptTask.next(analyzeLLMTask))
       );
 
     const stateMachine = new sfn.StateMachine(this, 'HotlineQAWorkflow', {
@@ -251,6 +278,11 @@ export class HotlineQaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'FormatFunctionName', {
       value: formatFunction.functionName,
       description: 'Name of the Lambda function that formats transcription outputs',
+    });
+    
+    new cdk.CfnOutput(this, 'AnalyzeLLMFunctionName', {
+      value: analyzeLLMFunction.functionName,
+      description: 'Name of the Lambda function that analyzes transcripts using Bedrock',
     });
     
     // Output the state machine ARN for reference

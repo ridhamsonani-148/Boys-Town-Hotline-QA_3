@@ -7,7 +7,7 @@ This project implements an automated quality assessment system for Boys Town's N
 The solution uses:
 - S3 for storage of recordings, transcripts, and analysis results
 - AWS Transcribe Call Analytics for speech-to-text conversion with advanced features
-- AWS Bedrock (Nova Lite) for call quality assessment
+- AWS Bedrock (Amazon Nova Lite) for call quality assessment
 - Step Functions for workflow orchestration
 - Lambda for processing
 
@@ -32,7 +32,7 @@ The solution uses:
 2. The system automatically:
    - Transcribes the audio using Call Analytics and saves to `transcripts/analytics/`
    - Formats the transcript to extract just the summary and conversation, saving to `formatted/`
-   - (Future) Analyzes the transcript against quality metrics and stores results in `results/`
+   - Analyzes the transcript against Boys Town's QA rubric using AWS Bedrock (Amazon Nova Lite) and stores results in `results/`
 
 ## Deployment Instructions
 
