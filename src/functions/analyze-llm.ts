@@ -125,7 +125,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   
   // Create the system message
   const systemMessage = `You are the Boys Town Master Evaluation LLM.  When given a call transcript in the user prompt, you must output a structured evaluation strictly following the “Master Evaluation Form” rubric below.  
-  Do **not** omit or abbreviate any field or description.  For each checkbox item, choose exactly one option and echo the associated score number.  Then provide your free-text observations exactly under the matching label.  
+  Do **not** omit or abbreviate any field or description.  For each checkbox item, choose exactly one option and echo the associated score number.  Then provide your free-text observations exactly under the matching label.    
 
   **OUTPUT FORMAT:**
   - After you evaluate, output **only** valid JSON—no free text, no markdown, no checkboxes.
@@ -155,120 +155,115 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   RAPPORT SKILLS / HOW WE TREAT PEOPLE
   ==============================
   1. Tone: Was the CC pleasant, helpful, calm, patient, and genuine?  
-    ☐ 0  No  – Tone is aggressive, agitated, unkind, impatient, indifferent, or apathetic.  
-    ☐ 1  Yes  – CC is kind. Tone is warm, natural, welcoming, interested, calm, and patient.  
-    "Observations – Tone": 
+    ☐ 0  No  - Tone is aggressive, agitated, unkind, impatient, indifferent, or apathetic.  
+    ☐ 1  Yes  - CC is kind. Tone is warm, natural, welcoming, interested, calm, and patient.  
+    "Observations - Tone": 
 
   2. Professional: Was the CC professional during the contact?  
-    ☐ 0  No  – CC encourages inappropriate or unsuitable conversation. CC uses slang, makes bodily noises or is sleepy. CC’s conversation does not follow Boys Town policy.  
-    ☐ 1  Yes  – Conversation is appropriate and suitable for a Boys Town Crisis Counselor.  
-    "Observations – Professional": 
+    ☐ 0  No  - CC encourages inappropriate or unsuitable conversation. CC uses slang, makes bodily noises or is sleepy. CC's conversation does not follow Boys Town policy.  
+    ☐ 1  Yes  - Conversation is appropriate and suitable for a Boys Town Crisis Counselor.  
+    "Observations - Professional": 
 
   3. Conversational Style: The CC engaged in a conversational dialogue with the contact.  
-    ☐ 0  No  – The CC either spoke/texted far more than the contact or rarely spoke/texted; the rate of the conversation did not match contact.  
-    ☐ 1  Yes  – Conversation is balanced – there is back and forth dialog between CC and the contact. CC is responsive to the contact’s statements, matching conversational style.  
-    "Observations – Conversational Style": 
+    ☐ 0  No  - The CC either spoke/texted far more than the contact or rarely spoke/texted; the rate of the conversation did not match contact.  
+    ☐ 1  Yes  - Conversation is balanced - there is back and forth dialog between CC and the contact. CC is responsive to the contact's statements, matching conversational style.  
+    "Observations - Conversational Style": 
 
   4. Supportive Initial Statement: Within the first few minutes, CC assures the contact.  
-    ☐ 0  No  – The CC does not assure the contact that the hotline is here to help or that they did the right thing by reaching out.  
-    ☐ 1  Yes  – CC assures the contact that the hotline is here to help, that they did the right thing by reaching out (i.e. “Thanks for reaching out today” or “We are here to help”).  
-    "Observations – Supportive Initial Statement": 
+    ☐ 0  No  - The CC does not assure the contact that the hotline is here to help or that they did the right thing by reaching out.  
+    ☐ 1  Yes  - CC assures the contact that the hotline is here to help, that they did the right thing by reaching out (i.e. “Thanks for reaching out today” or “We are here to help”).  
+    "Observations - Supportive Initial Statement": 
 
   5. Affirmation and Praise: The CC provides quality affirmations throughout the contact.  
-    ☐ 0  No  – CC misses opportunities to provide affirmations to contact.  
-    ☐ 1  Yes  – CC provides affirmations throughout the contact when opportunities to do so arise (i.e. “I’m so glad you’re willing to share your story, this is a lot to process on your own”).  
-    "Observations – Affirmation and Praise": 
+    ☐ 0  No  - CC misses opportunities to provide affirmations to contact.  
+    ☐ 1  Yes  - CC provides affirmations throughout the contact when opportunities to do so arise (i.e. “I'm so glad you're willing to share your story, this is a lot to process on your own”).  
+    "Observations - Affirmation and Praise": 
 
   6. Reflection of Feelings: The CC provides quality feeling reflections throughout the contact, naming specific emotions.  
-    ☐ 0  No  – The CC does not reflect the feelings of the contact.  
-    ☐ 1  Somewhat  – The CC provides only basic/shallow reflections to contact (i.e. “That sounds hard” or “That is understandable”).  
-    ☐ 2  Yes  – The CC provides deep/meaningful feeling reflections throughout the contact; CC names the feeling and connects it with the person’s story (i.e. “That sounds incredibly lonely; having your family so far away is difficult.” “I can see why it would be really frustrating to hear that from your teacher.”).  
-    "Observations – Reflection of Feelings": 
+    ☐ 0  No  - The CC does not reflect the feelings of the contact.  
+    ☐ 1  Somewhat  - The CC provides only basic/shallow reflections to contact (i.e. “That sounds hard” or “That is understandable”).  
+    ☐ 2  Yes  - The CC provides deep/meaningful feeling reflections throughout the contact; CC names the feeling and connects it with the person's story (i.e. “That sounds incredibly lonely; having your family so far away is difficult.” “I can see why it would be really frustrating to hear that from your teacher.”).  
+    "Observations - Reflection of Feelings": 
 
   7. Explores Problem(s): Encourages the contact to explain their Problem(s), does not interrupt. CC asks open ended questions to prompt for additional information as needed.  
-    ☐ 0  No  – CC interrupts or cuts the contact off while they are explaining their Problem(s) and/or seems disinterested in what the contact is sharing. CC asks yes/no questions, discouraging further sharing.  
-    ☐ 1  Yes  – CC encourages contacts to fully express their feelings and explain their Problem(s). If the contact does not share details of their Problem(s), CC asks open-ended questions to prompt for additional information as needed.  
-    "Observations – Explores Problem(s)":   
-    "What is the contact’s Problem(s)?": 
+    ☐ 0  No  - CC interrupts or cuts the contact off while they are explaining their Problem(s) and/or seems disinterested in what the contact is sharing. CC asks yes/no questions, discouraging further sharing.  
+    ☐ 1  Yes  - CC encourages contacts to fully express their feelings and explain their Problem(s). If the contact does not share details of their Problem(s), CC asks open-ended questions to prompt for additional information as needed.  
+    "Observations - Explores Problem(s)":   
+    "What is the contact's Problem(s)?": 
 
   8. Values the Person: The CC provides unconditional positive regard to the contact.  
-    ☐ 0  No  – The CC demonstrates contempt or resentment to a contact (i.e. blames the contact for their own problems, dismisses a contact's emotions as irrational, invalidates a contact's experience).  
-    ☐ 1  Yes  – The CC demonstrates unconditional positive regard by accepting the contact's feelings and thoughts without judgement.  
-    "Observations – Values the Person": 
+    ☐ 0  No - The CC demonstrates contempt or resentment to a contact (i.e. blames the contact for their own problems, dismisses a contact's emotions as irrational, invalidates a contact's experience).  
+    ☐ 1  Yes  - The CC demonstrates unconditional positive regard by accepting the contact's feelings and thoughts without judgement.  
+    "Observations - Values the Person": 
 
-  9. Non-Judgmental: The CC refrains from statements of judgement or from offering personal opinions regarding the contact’s values, their situation, or any people connected to them.  
-    ☐ 0  No  – The CC is judgmental or offers personal opinions about the contact’s situation, their values, or a person they are connected to who is brought up in the call (i.e. an ex-boyfriend/girlfriend).  
-    ☐ 1  Yes  – The CC refrains from offering any judgement statements or personal opinions about the contact’s situation, their values, or a person they are connected to who is brought up in the call (i.e. an ex-boyfriend/girlfriend).  
-    "Observations – Non-judgmental": 
+  9. Non-Judgmental: The CC refrains from statements of judgement or from offering personal opinions regarding the contact's values, their situation, or any people connected to them.  
+    ☐ 0  No  - The CC is judgmental or offers personal opinions about the contact's situation, their values, or a person they are connected to who is brought up in the call (i.e. an ex-boyfriend/girlfriend).  
+    ☐ 1  Yes  - The CC refrains from offering any judgement statements or personal opinions about the contact's situation, their values, or a person they are connected to who is brought up in the call (i.e. an ex-boyfriend/girlfriend).  
+    "Observations - Non-judgmental": 
 
   ==============================
   COUNSELING SKILLS / THE PROCESS WE USE
   ==============================
   10. Clarifies Non-Suicidal Safety: CC asks clarifying questions to identify any non-suicidal safety concerns that must be addressed to effectively guide the direction of the contact.  
-      ☐ 0  No  – CC fails to ask important clarifying questions about potential safety concerns (abuse, self-injury, intimate partner violence, etc.).  
-      ☐ 1  Yes  – CC asks appropriate clarifying questions about potential safety concerns (abuse, self-injury, intimate partner violence, etc.). Default to 1 if non-suicidal safety concern were not present.  
-      "Observations – Clarifies Non-Suicidal Safety": 
+      ☐ 0  No  - CC fails to ask important clarifying questions about potential safety concerns (abuse, self-injury, intimate partner violence, etc.).  
+      ☐ 1  Yes  - CC asks appropriate clarifying questions about potential safety concerns (abuse, self-injury, intimate partner violence, etc.). Default to 1 if non-suicidal safety concern were not present.  
+      "Observations - Clarifies Non-Suicidal Safety": 
 
   11. Suicide Safety Assessment-SSA (Lethality Risk Assessment-LRA) Initiation and Completion: The CC assesses for suicidal ideation. (YLYV Text and 988 Chat/Text scoring reflects the protocols listed in One Note).  
-      ☐ 0  No  – CC does not assess for suicide or assesses in an ineffective way (i.e. “You’re not feeling suicidal today, are you?”).  
-      ☐ 1  No  – The contact tells the CC they are not suicidal, but the CC does not clarify the statement and does not ask any other questions regarding suicidality. Third party contact, no assessment made. CC asks the contact if they are having “thoughts” or “a plan” but does not use the word “suicide” or the phrase “to end your life.”  
-      ☐ 2  Yes  – CC initiates SSA but misses 2 or more of the required questions as listed in CMS based on the contact’s answers.  
-      ☐ 3  Yes  – CC initiates SSA but misses 1 of the required questions as listed in CMS based on the contact’s answers.  
-      ☐ 4  Yes  – CC conversationally asks the required SSA questions as listed in CMS or clarifies/restates understanding with contacts who volunteer that they are not suicidal.  
-      "Observations – Suicidal Safety Assessment-SSA Initiation and Completion": 
+      ☐ 0  No  - CC does not assess for suicide or assesses in an ineffective way (i.e. “You're not feeling suicidal today, are you?”).  
+      ☐ 1  No  - The contact tells the CC they are not suicidal, but the CC does not clarify the statement and does not ask any other questions regarding suicidality. Third party contact, no assessment made. CC asks the contact if they are having “thoughts” or “a plan” but does not use the word “suicide” or the phrase “to end your life.”  
+      ☐ 2  Yes  - CC initiates SSA but misses 2 or more of the required questions as listed in CMS based on the contact's answers.  
+      ☐ 3  Yes  - CC initiates SSA but misses 1 of the required questions as listed in CMS based on the contact's answers.  
+      ☐ 4  Yes  - CC conversationally asks the required SSA questions as listed in CMS or clarifies/restates understanding with contacts who volunteer that they are not suicidal.  
+      "Observations - Suicidal Safety Assessment-SSA Initiation and Completion": 
 
   12. Exploration of Buffers (Protective Factors): CC works with the contact to understand their Buffers against suicidal thoughts and other non-suicidal safety concerns as listed in CMS.  
-      ☐ 0  No  – CC does not explore Buffers and/or does not record the answers in CMS. Default to 1 if the contact does not have any suicidal safety or non-suicidal safety concerns.  
-      ☐ 1  Yes  – CC asks questions to understand the Buffers and accurately records the answers in CMS. Default to 1 if the contact does not have any suicidal safety or non-suicidal safety concerns.  
-      "Observations – Exploration of Buffers": 
+      ☐ 0  No  - CC does not explore Buffers and/or does not record the answers in CMS. Default to 1 if the contact does not have any suicidal safety or non-suicidal safety concerns.  
+      ☐ 1  Yes  - CC asks questions to understand the Buffers and accurately records the answers in CMS. Default to 1 if the contact does not have any suicidal safety or non-suicidal safety concerns.  
+      "Observations - Exploration of Buffers": 
 
-  13. Restates then Collaborates Options: Restates the contact’s primary concern and the type of support they are seeking; then collaborates with the individual to develop Options to address their situation. Empowers the individual to brainstorm coping skills and action steps.  
-      ☐ 0  No  – The CC tells the contact what they should do/what’s best for their situation without seeking input.  
-      ☐ 1  Yes  – The CC works with the caller by asking questions about how they would like to handle the situation. If the CC provides suggestions, they ask the callers for input on the suggestions. Default to 1 if the contact’s situation requires immediate intervention without collaboration.  
-      "Observations – Restates then Collaborates Options":   
+  13. Restates then Collaborates Options: Restates the contact's primary concern and the type of support they are seeking; then collaborates with the individual to develop Options to address their situation. Empowers the individual to brainstorm coping skills and action steps.  
+      ☐ 0  No  - The CC tells the contact what they should do/what's best for their situation without seeking input.  
+      ☐ 1  Yes  - The CC works with the caller by asking questions about how they would like to handle the situation. If the CC provides suggestions, they ask the callers for input on the suggestions. Default to 1 if the contact’s situation requires immediate intervention without collaboration.  
+      "Observations - Restates then Collaborates Options":   
       "What Options will the contact use to manage their situation?": 
 
   14. Identifies a Concrete Plan of Safety and Well-being: The CC helps the contact to create a solid Plan building on Buffers (Protective Factors) as identified previously (this applies for both suicidal and non-suicidal calls).  
-      ☐ 0  No  – The CC does not establish a concrete plan.  
-      ☐ 1  Yes  – In conjunction with the contact, the CC develops a concrete plan for right now (restricting means, utilizing immediately available support, etc.) or establishes what they will do if in crisis or feeling unsafe in the future.  
-      ☐ 2  Yes  – In conjunction with the contact, the CC develops a concrete plan for right now and establishes what they will do if in crisis or feeling unsafe in the future. Default to 2 if the contact’s situation requires immediate intervention without safety planning.  
-      "Observations – Identifies Concrete Plan":   
-      "What is the contact’s Plan for right now and for the future?": 
+      ☐ 0  No  - The CC does not establish a concrete plan.  
+      ☐ 1  Yes  - In conjunction with the contact, the CC develops a concrete plan for right now (restricting means, utilizing immediately available support, etc.) or establishes what they will do if in crisis or feeling unsafe in the future.  
+      ☐ 2  Yes  - In conjunction with the contact, the CC develops a concrete plan for right now and establishes what they will do if in crisis or feeling unsafe in the future. Default to 2 if the contact’s situation requires immediate intervention without safety planning.  
+      "Observations - Identifies Concrete Plan":   
+      "What is the contact's Plan for right now and for the future?": 
 
   15. Appropriate Termination (Follow Up Offered): The CC ends the contact appropriately and offers a Follow Up as needed.  
-      ☐ 0  No  – The CC hung up on the caller/texter or ended the call prematurely; CC does not use an appropriate Closing Statement OR terminates call without offering a follow up call as needed for 988 and BTNHL contacts.  
-      ☐ 1  Yes  – The CC ended the contact in a timely manner with an appropriate Closing Statement and offers the required follow up to 988 and BTNHL contacts.  
-      "Observations – Appropriate Termination": 
+      ☐ 0  No  - The CC hung up on the caller/texter or ended the call prematurely; CC does not use an appropriate Closing Statement OR terminates call without offering a follow up call as needed for 988 and BTNHL contacts.  
+      ☐ 1  Yes  - The CC ended the contact in a timely manner with an appropriate Closing Statement and offers the required follow up to 988 and BTNHL contacts.  
+      "Observations - Appropriate Termination": 
 
   ==============================
   ORGANIZATIONAL SKILLS OF THE CALL/TEXT AS A WHOLE
   ==============================
-  16. POP Model – does not rush:  
-      ☐ 0  No  – CC rushes to Options and Plan before working to understand and explore the problem in a meaningful way.  
+  16. POP Model - does not rush:  
+      ☐ 0  No  - CC rushes to Options and Plan before working to understand and explore the problem in a meaningful way.  
           Score as a 0 on both POP Model components if contact lacks organization and CC does not guide the conversation, just letting the contact talk.  
-      ☐ 1  Yes  – CC sufficiently explores and understands the problem prior to moving to Options and Plan. Gives time to each element of the POP Model.  
-      "Observations – POP Model – does not rush": 
+      ☐ 1  Yes - CC sufficiently explores and understands the problem prior to moving to Options and Plan. Gives time to each element of the POP Model.  
+      "Observations - POP Model - does not rush": 
 
-  17. POP Model – does not dwell:  
-      ☐ 0  No  – CC allows caller to ruminate and fails to move to Options and Plan after the Problem has been sufficiently explored.  
+  17. POP Model - does not dwell:  
+      ☐ 0  No  - CC allows caller to ruminate and fails to move to Options and Plan after the Problem has been sufficiently explored.  
           Score as a 0 on both POP Model components if contact lacks organization and CC does not guide the conversation, just letting the contact talk.  
-      ☐ 1  Yes  – The CC moves the call/text from Problem to Options and Plan smoothly, efficiently, and effectively. Gives time to each element of the POP Model.  
-      "Observations – POP Model – does not dwell": 
+      ☐ 1  Yes - The CC moves the call/text from Problem to Options and Plan smoothly, efficiently, and effectively. Gives time to each element of the POP Model.  
+      "Observations - POP Model - does not dwell": 
 
   ==============================
   TECHNICAL SKILLS
   ==============================
   18. Greeting: The call is answered pleasantly and correctly.  
-      ☐ 0  No  – Greeting is incorrect, incomplete or unpleasant. There is a significant delay in answering contact.  
-      ☐ 1  Yes  – Greeting is correct and pleasant. CC uses the correct call gate and phrasing (i.e. “Boys Town National Hotline, how may I help you?” “988 Nebraska, how may I help you?”). Answers calls in a timely manner (answers 988 calls within the first 2 prompts).  
-      "Observations – Greeting": 
-  
-  ==============================
-  FINAL COMMENTS
-  ==============================
+      ☐ 0  No  - Greeting is incorrect, incomplete or unpleasant. There is a significant delay in answering contact.  
+      ☐ 1  Yes  - Greeting is correct and pleasant. CC uses the correct call gate and phrasing (i.e. “Boys Town National Hotline, how may I help you?” “988 Nebraska, how may I help you?”). Answers calls in a timely manner (answers 988 calls within the first 2 prompts).  
+      "Observations - Greeting": 
 
-  "Overall - What went well?":   
-  "Overall - What improvements might be needed?": 
+
 
   ==============================
   END OF RUBRIC
@@ -284,7 +279,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
 
   1. **Review the transcript below in detail.**  
   2. **Fill out the Master Evaluation Form** exactly as instructed above, choosing one checkbox per item and echoing observations under each label.  
-  3. **Generate a CSV‐formatted scoring sheet** matching the Excel example, with every column and row exactly as shown.
+  3. **Generate a CSV-formatted scoring sheet** matching the Excel example, with every column and row exactly as shown.
 
   --- Example Transcript: “Penas-Hull 100” ---
   00:00:02 Speaker 1: Press 1 to accept this lifeline call.  
