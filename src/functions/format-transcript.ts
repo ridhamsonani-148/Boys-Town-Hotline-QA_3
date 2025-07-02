@@ -72,8 +72,8 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
     // Format the transcript
     const formattedOutput = formatTranscript(transcribeOutput);
     
-    // Save the formatted transcript to the formatted/ folder
-    const formattedKey = `formatted/formatted_${fileNameWithoutExt}.json`;
+    // Save the formatted transcript to the transcripts/formatted/ folder
+    const formattedKey = `transcripts/formatted/formatted_${fileNameWithoutExt}.json`;
     
     const putCommand = new PutObjectCommand({
       Bucket: bucket,

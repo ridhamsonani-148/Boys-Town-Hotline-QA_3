@@ -250,7 +250,7 @@ export class HotlineQaStack extends cdk.Stack {
     });
     
     new cdk.CfnOutput(this, 'FormattedPrefix', {
-      value: 'formatted/',
+      value: 'transcripts/formatted/',
       description: 'S3 prefix for formatted transcription outputs',
     });
     

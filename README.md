@@ -31,7 +31,7 @@ The solution uses:
 1. Upload call recordings to the `records/` folder in the S3 bucket
 2. The system automatically:
    - Transcribes the audio using Call Analytics and saves to `transcripts/analytics/`
-   - Formats the transcript to extract just the summary and conversation, saving to `formatted/`
+   - Formats the transcript to extract just the summary and conversation, saving to `transcripts/formatted/`
    - Analyzes the transcript against Boys Town's QA rubric using AWS Bedrock (Amazon Nova Lite) and stores results in `results/`
 
 ## Deployment Instructions
@@ -75,5 +75,5 @@ cdk deploy --context envName=prod --context bucketNamePrefix=my-company-hotline-
 
 - `records/`: Upload call recordings here (.mp3 or .wav format)
 - `transcripts/analytics/`: Contains full transcription outputs (automatically generated)
-- `formatted/`: Contains simplified transcription outputs (automatically generated)
+- `transcripts/formatted/`: Contains simplified transcription outputs (automatically generated)
 - `results/`: Contains quality assessment results (automatically generated)

@@ -20,7 +20,7 @@ if (!BUCKET_NAME) {
 }
 
 // Model ID for Amazon Nova Lite
-const MODEL_ID = 'amazon.nova-lite-v1:0';
+const MODEL_ID = 'amazon.nova-pro-v1:0';
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -88,7 +88,7 @@ export const handler = async (event: AnalyzeEvent): Promise<any> => {
     const formattedTranscript: FormattedTranscript = JSON.parse(body);
     
     // Create the result key in the results folder
-    const resultKey = formattedKey.replace('formatted/', 'results/').replace('formatted_', 'analysis_');
+    const resultKey = formattedKey.replace('transcripts/formatted/', 'results/').replace('formatted_', 'analysis_');
     
     // Analyze the transcript using Bedrock
     const analysisResult = await analyzeTranscript(formattedTranscript);
@@ -124,22 +124,29 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
     .join('\n\n');
   
   // Create the system message
-  const systemMessage = `You are the Boys Town Master Evaluation LLM.  When given a call transcript in the user prompt, you must output a structured evaluation strictly following the “Master Evaluation Form” rubric below.  Do **not** omit or abbreviate any field or description.  For each checkbox item, choose exactly one option and echo the associated score number.  Then provide your free-text observations exactly under the matching label.  
+  const systemMessage = `You are the Boys Town Master Evaluation LLM.  When given a call transcript in the user prompt, you must output a structured evaluation strictly following the “Master Evaluation Form” rubric below.  
+  Do **not** omit or abbreviate any field or description.  For each checkbox item, choose exactly one option and echo the associated score number.  Then provide your free-text observations exactly under the matching label.  
 
   **OUTPUT FORMAT:**
   - After you evaluate, output **only** valid JSON—no free text, no markdown, no checkboxes.
-  - DO NOT wrap the JSON in triple backticks or quotes.
+  - **DO NOT wrap the JSON in triple backticks or quotes.**
   - Your JSON must be an object whose keys are the exact rubric question names (e.g. "Tone", "Professional", etc.).
-  - Each value must be an object with three fields:
+  - For each item, the value must be an object with:
       "score": <0|1|2|…>,
       "label": "<Yes/No/Somewhat>",
-      "observation": "<text…>"
+      "observation": "<your concise rationale>",
+      "evidence": "<speaker>: <exact transcript line>"
+  - **Only** use lines provided in the user transcript for evidence. Do **not** invent or paraphrase. If no line matches, set evidence to "N/A".
 
-  **Example (raw JSON only):**
-  {
-    "Tone": { "score": 1, "label": "Yes", "observation": "CC maintained a calm and supportive tone throughout the call." },
-    "Professional": { "score": 1, "label": "Yes", "observation": "CC used appropriate language and followed policy." }
-  }
+  **Example**
+    {
+      "Tone": {
+        "score": 1,
+        "label": "Yes",
+        "observation": "Calm and supportive tone.",
+        "evidence": "AGENT: It's great that you're reaching out."
+      }
+    }
 
 
   Below is the Master Evaluation Form rubric you must follow:
@@ -255,23 +262,19 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       ☐ 0  No  – Greeting is incorrect, incomplete or unpleasant. There is a significant delay in answering contact.  
       ☐ 1  Yes  – Greeting is correct and pleasant. CC uses the correct call gate and phrasing (i.e. “Boys Town National Hotline, how may I help you?” “988 Nebraska, how may I help you?”). Answers calls in a timely manner (answers 988 calls within the first 2 prompts).  
       "Observations – Greeting": 
+  
+  ==============================
+  FINAL COMMENTS
+  ==============================
 
-  19. SSA (LRA) Documentation: The LRA Screen is filled out accurately.  
-      ☐ 0  No  – Does not accurately document the contact’s answers to LRA questions or documentation is incomplete.  
-      ☐ 1  Yes  – LRA documentation is accurate and complete.  
-      "Observations – LRA Documentation": 
-
-  20. Call Documentation/SC Communication: CC documents the call and messages the SC pertinent information.  
-      ☐ 0  No  – CC does not document information correctly or does not message SC pertinent Information.  
-      ☐ 1  Yes  – Documentation is complete including the Call Record and other pages as needed. Pertinent information is messaged to the SC.  
-      "Observations – Call Documentation/SC Communication": 
-
-  "Overall – What went well?":   
-  "Overall – What improvements might be needed?": 
+  "Overall - What went well?":   
+  "Overall - What improvements might be needed?": 
 
   ==============================
   END OF RUBRIC
   ==============================
+
+  ------------------------------------
 
   ==============================
   EXAMPLE CALL & SCORING SHEET
@@ -472,13 +475,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   ,   CONTACT Average,,,,,,70-79 Improvement Needed
   ,,,,,,,<69 Not At Criteria
 
-  **End of example.**  
-
-  When you process **new** transcripts, follow these steps exactly:
-  1. Load transcript → apply rubric → produce JSON (as defined).  
-  2. Then output a CSV block **identical** in format to the example above, filling each cell.  
-  3. Do **not** omit or rename any column or row.  
-  4. Ensure observations include timestamps and verbatim text where shown.`;
+  **End of example.** `;
 
   // Create the user message with the transcript
   const userMessage = `Here is the call transcript to evaluate. The transcript includes a summary followed by the conversation between the AGENT (counselor) and CUSTOMER (caller).
@@ -510,7 +507,7 @@ Please analyze this transcript according to Boys Town's QA rubric and provide a 
       
       inferenceConfig: {
         //maxTokens: 4096,
-        temperature: 0.2,
+        temperature: 0.1,
         topP: 0.9
       }
     });
