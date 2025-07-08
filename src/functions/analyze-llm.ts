@@ -44,6 +44,10 @@ interface FormattedTranscript {
   transcript: Array<{
     speaker: string;
     text: string;
+    beginTime?: string;
+    endTime?: string;
+    beginTimeMs?: number;
+    endTimeMs?: number;
   }>;
 }
 
@@ -120,7 +124,7 @@ export const handler = async (event: AnalyzeEvent): Promise<any> => {
 async function analyzeTranscript(formattedTranscript: FormattedTranscript): Promise<any> {
   // Prepare the transcript for the LLM
   const transcriptText = formattedTranscript.transcript
-    .map(item => `${item.speaker}: ${item.text}`)
+    .map(item => `${item.beginTime} ${item.speaker}: ${item.text}`)
     .join('\n\n');
   
   // Create the system message
@@ -135,7 +139,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       "score": <0|1|2|…>,
       "label": "<Yes/No/Somewhat>",
       "observation": "<your concise rationale>",
-      "evidence": "<speaker>: <exact transcript line>"
+      "evidence": "<timestamp> <speaker>: <exact transcript line>"
   - **Only** use lines provided in the user transcript for evidence. Do **not** invent or paraphrase. If no line matches, set evidence to "N/A".
 
   **Example**
