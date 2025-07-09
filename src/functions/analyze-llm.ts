@@ -19,8 +19,8 @@ if (!BUCKET_NAME) {
   throw new Error('Required environment variable BUCKET_NAME must be set');
 }
 
-// Model ID for Amazon Nova Lite
-const MODEL_ID = 'amazon.nova-pro-v1:0';
+// Model ID for Amazon Nova Pro
+const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -44,10 +44,8 @@ interface FormattedTranscript {
   transcript: Array<{
     speaker: string;
     text: string;
-    beginTime?: string;
-    endTime?: string;
-    beginTimeMs?: number;
-    endTimeMs?: number;
+    beginTime: string;
+    endTime: string;
   }>;
 }
 
@@ -139,7 +137,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       "score": <0|1|2|…>,
       "label": "<Yes/No/Somewhat>",
       "observation": "<your concise rationale>",
-      "evidence": "<timestamp> <speaker>: <exact transcript line>"
+      "evidence": "<timestamp> <speaker>: <exact transcript line>" (IMPORTANT: Always include the timestamp)
   - **Only** use lines provided in the user transcript for evidence. Do **not** invent or paraphrase. If no line matches, set evidence to "N/A".
 
   **Example**
@@ -148,7 +146,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
         "score": 1,
         "label": "Yes",
         "observation": "Calm and supportive tone.",
-        "evidence": "AGENT: It's great that you're reaching out."
+        "evidence": "00:24.500 AGENT: It's great that you're reaching out."
       }
     }
 

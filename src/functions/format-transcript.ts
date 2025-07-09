@@ -119,10 +119,7 @@ function formatTranscript(transcribeOutput: TranscribeOutput): any {
       speaker: item.ParticipantRole,
       text: item.Content,
       beginTime: beginTime,
-      endTime: endTime,
-      // Keep raw millisecond values for potential sorting or calculations
-      beginTimeMs: item.BeginOffsetMillis,
-      endTimeMs: item.EndOffsetMillis
+      endTime: endTime
     };
   });
   
