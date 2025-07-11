@@ -20,7 +20,7 @@ if (!BUCKET_NAME) {
 }
 
 // Model ID for Amazon Nova Pro
-const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.amazon.nova-premier-v1:0';
+const MODEL_ID = 'amazon.nova-pro-v1:0';
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -889,7 +889,11 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   - The Crisis Counselor completes the computerized, formatted Call Notes.  
   - The Lead/Senior Counselor reviews and edits the Call Notes, makes any necessary reports to law enforcement, and records the call on the Incident/Abuse Report.  
   - If there are no immediate safety concerns, the call record may be placed on the Incident Report for follow-up the next day.  
-  - Any questions or concerns about domestic violence or sexual assault calls should be referred to a supervisor for consultation.  
+  - Any questions or concerns about domestic violence or sexual assault calls should be referred to a supervisor for consultation. 
+  
+  ======================================
+  END OF IMPORTANT INSTRUCTIONS
+  ======================================
 
 
   ==============================
