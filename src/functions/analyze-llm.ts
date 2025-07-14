@@ -20,7 +20,7 @@ if (!BUCKET_NAME) {
 }
 
 // Model ID for Amazon Nova Pro
-const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
+const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.amazon.nova-premier-v1:0';
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -188,8 +188,11 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
 
   4. Supportive Initial Statement: Within the first few minutes, CC assures the contact.  
     ☐ 0  No  - The CC does not assure the contact that the hotline is here to help or that they did the right thing by reaching out.  
-    ☐ 1  Yes  - CC assures the contact that the hotline is here to help, that they did the right thing by reaching out (i.e. “Thanks for reaching out today” or “We are here to help”).  
+    ☐ 1  Yes  - CC assures the contact that the hotline is here to help, that they did the right thing by reaching out (i.e. “Thanks for reaching out today” or “We are here to help” or something similar that assures contact that they did the right thing reaching out and they will be helped).  
     "Observations - Supportive Initial Statement": 
+
+    (- 1 point **only** if the agent utterance is a clear assurance phrase, such as “Thank you for calling,” “I'm glad you reached out,” or “We're here to help you today. or similar”  
+     - 0 points if it's generic like “Sure, I can talk,”,  “OK”, or delayed past the first 30 seconds.)
 
   5. Affirmation and Praise: The CC provides quality affirmations throughout the contact.  
     ☐ 0  No  - CC misses opportunities to provide affirmations to contact.  
@@ -202,6 +205,10 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
     ☐ 2  Yes  - The CC provides deep/meaningful feeling reflections throughout the contact; CC names the feeling and connects it with the person's story (i.e. “That sounds incredibly lonely; having your family so far away is difficult.” “I can see why it would be really frustrating to hear that from your teacher.”).  
     "Observations - Reflection of Feelings": 
 
+    ( - 2 points **only** if the agent names a specific emotion and ties it to the story (e.g. “That sounds incredibly lonely given you live far away”).  
+      - 1 point if the agent only uses shallow reflections (“That sounds hard,” “I bet that's tough”).  
+      - 0 points if there are no reflections at all.)
+
   7. Explores Problem(s): Encourages the contact to explain their Problem(s), does not interrupt. CC asks open ended questions to prompt for additional information as needed.  
     ☐ 0  No  - CC interrupts or cuts the contact off while they are explaining their Problem(s) and/or seems disinterested in what the contact is sharing. CC asks yes/no questions, discouraging further sharing.  
     ☐ 1  Yes  - CC encourages contacts to fully express their feelings and explain their Problem(s). If the contact does not share details of their Problem(s), CC asks open-ended questions to prompt for additional information as needed.  
@@ -209,7 +216,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
 
   8. Values the Person: The CC provides unconditional positive regard to the contact.  
     ☐ 0  No - The CC demonstrates contempt or resentment to a contact (i.e. blames the contact for their own problems, dismisses a contact's emotions as irrational, invalidates a contact's experience).  
-    ☐ 1  Yes  - The CC demonstrates unconditional positive regard by accepting the contact's feelings and thoughts without judgement.  
+    ☐ 1  Yes  - The CC demonstrates unconditional positive regard by accepting the contact's feelings and thoughts without judgement. (“Your feelings are valid,” “You deserve to be heard”)
     "Observations - Values the Person": 
 
   9. Non-Judgmental: The CC refrains from statements of judgement or from offering personal opinions regarding the contact's values, their situation, or any people connected to them.  
@@ -236,6 +243,8 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       ☐ 4  Yes  - CC conversationally asks the required SSA questions as listed in CMS or clarifies/restates understanding with contacts who volunteer that they are not suicidal.  
       "Observations - Suicidal Safety Assessment-SSA Initiation and Completion": 
 
+    (While deducting the score in this point, also state in the evidence what question did the CC miss from the CMS)
+  
   12. Exploration of Buffers (Protective Factors): CC works with the contact to understand their Buffers against suicidal thoughts and other non-suicidal safety concerns as listed in CMS.  
       ☐ 0  No  - CC does not explore Buffers and/or does not record the answers in CMS. Default to 1 if the contact does not have any suicidal safety or non-suicidal safety concerns.  
       ☐ 1  Yes  - CC asks questions to understand the Buffers and accurately records the answers in CMS. Default to 1 if the contact does not have any suicidal safety or non-suicidal safety concerns.  
@@ -247,7 +256,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       "Observations - Restates then Collaborates Options":   
 
       (For this metric, if there is a single instace where Agent told the client what they should do, or did not seek input from the client, or did not ask questions about how they would like to handle the situation, then the score should be 0.
-      Give full score only if the Agent fully collaborates with the client and does not tell them what to do, or does not seek input from the client.)
+      Give full score only if the Agent fully collaborates with the client and does not tell them what to do and seeks input from the client throughout the call.)
 
   14. Identifies a Concrete Plan of Safety and Well-being: The CC helps the contact to create a solid Plan building on Buffers (Protective Factors) as identified previously (this applies for both suicidal and non-suicidal calls).  
       ☐ 0  No  - The CC does not establish a concrete plan.  
@@ -255,7 +264,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       ☐ 2  Yes  - In conjunction with the contact, the CC develops a concrete plan for right now and establishes what they will do if in crisis or feeling unsafe in the future. Default to 2 if the contact’s situation requires immediate intervention without safety planning.  
       "Observations - Identifies Concrete Plan":   
 
-      (For this metric give full score only if Agent develops concrete plan with clinet for both current and future situations. If Agent only develops a concrete plan for current situation, then score should be 1.
+      (For this metric give full score (2) only if the agent co-creates both a near-term *and* future safety plan (“For now, do X; if you feel unsafe later, do Y”). If Agent only develops a concrete plan for current situation, then score should be 1.
       If Agent does not develop a concrete plan at all, then score should be 0.)
 
   15. Appropriate Termination (Follow Up Offered): The CC ends the contact appropriately and offers a Follow Up as needed.  
@@ -271,12 +280,18 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
           Score as a 0 on both POP Model components if contact lacks organization and CC does not guide the conversation, just letting the contact talk.  
       ☐ 1  Yes - CC sufficiently explores and understands the problem prior to moving to Options and Plan. Gives time to each element of the POP Model.  
       "Observations - POP Model - does not rush": 
+    
+    ( - 1 point **only** if the agent spends at least 25% of the call time exploring the problem before moving on.  
+      - 0 points if they jump to options/plans without sufficient exploration of the problem.)
 
   17. POP Model - does not dwell:  
       ☐ 0  No  - CC allows caller to ruminate and fails to move to Options and Plan after the Problem has been sufficiently explored.  
           Score as a 0 on both POP Model components if contact lacks organization and CC does not guide the conversation, just letting the contact talk.  
       ☐ 1  Yes - The CC moves the call/text from Problem to Options and Plan smoothly, efficiently, and effectively. Gives time to each element of the POP Model.  
       "Observations - POP Model - does not dwell": 
+    
+    (- 1 point **only** if the agent smoothly transitions to options/plans once the core problem is understood.  
+     - 0 points if they linger too long (more than 50% of remaining call) on problem without solution talk.)
 
   ==============================
   TECHNICAL SKILLS
