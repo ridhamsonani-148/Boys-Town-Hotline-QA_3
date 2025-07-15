@@ -45,9 +45,17 @@ export class HotlineQaStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN, // Protect against accidental deletion
       lifecycleRules: [
         {
-          id: 'ExpireObjects',
+          // Rule for audio recordings - move to Glacier after 7 days, delete after 90 days
+          id: 'AudioRecordingsRule',
           enabled: true,
-          expiration: cdk.Duration.days(30),
+          prefix: 'records/', // Only apply to audio files in records/ folder
+          transitions: [
+            {
+              storageClass: s3.StorageClass.GLACIER,
+              transitionAfter: cdk.Duration.days(7) // Move to Glacier after 7 days
+            }
+          ],
+          expiration: cdk.Duration.days(90) // Delete after 90 days total
         }
       ],
       cors: [
@@ -57,7 +65,7 @@ export class HotlineQaStack extends cdk.Stack {
             s3.HttpMethods.PUT,
             s3.HttpMethods.POST,
           ],
-          allowedOrigins: ['*'], // You might want to restrict this in production
+          allowedOrigins: ['*'],
           allowedHeaders: ['*'],
           maxAge: 3000,
         },
