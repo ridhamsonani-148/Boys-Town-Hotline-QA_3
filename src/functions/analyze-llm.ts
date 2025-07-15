@@ -20,7 +20,7 @@ if (!BUCKET_NAME) {
 }
 
 // Model ID for Amazon Nova Pro
-const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.amazon.nova-premier-v1:0';
+const MODEL_ID = 'amazon.nova-pro-v1:0';
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -127,22 +127,35 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   
   // Create the system message
   const systemMessage = 
-  `You are an *unbiased*, *strict* Boys Town QA evaluator. Do **not** inflate or pad any scores.  
-  Score each rubric item **only** if the transcript **fully** meets the rubric’s “Yes/Somewhat” definitions; otherwise assign the lower bracket.
+  `You are an expert QA evaluator for Boys Town National Hotline, a crisis counseling service that helps people in distress. 
+  Your task is to objectively evaluate counselor performance based on call transcripts using the Boys Town evaluation rubric.
+
+  **EVALUATION APPROACH:**
+  1. First, read the entire transcript to understand the full context and flow of the conversation
+  2. For each rubric item, search for specific evidence that meets or fails to meet the criteria
+  3. Apply a strict, consistent scoring standard across all evaluations
+  4. Provide precise evidence with timestamps for each score
+  5. Include a brief, factual observation explaining your scoring decision
+
+  **SCORING PRINCIPLES:**
+  - Score based ONLY on evidence present in the transcript
+  - Default to the lower score when criteria are partially met
+  - Require clear, unambiguous evidence for full points
+  - Do not make assumptions about what might have happened off-transcript
+  - Consider the full context of the conversation when evaluating specific moments
 
   For **every** score you assign:
   - Pick exactly one checkbox value.
   - Cite the exact transcript line(s) that triggered that score.
-  - If you can’t find evidence, assign the lowest score and set evidence to "N/A".
+  - If you can't find evidence, set evidence to "N/A".
 
-  **Do NOT** give full marks by default. If a criterion isn’t explicitly met, deduct points.  
+  **Do NOT** give full marks by default. If a criterion isn't explicitly met, deduct points.  
 
   **Strict Scoring Rules**  
   1. Review the rubric definition for each item.  
-  2. If the transcript doesn’t include the required behavior or phrase, score 0.  
-  3. If it only partially meets it, score the middle option (e.g., “Somewhat”).  
-  4. Only score “1”/“2”/“4” etc. when you find unambiguous, on-point evidence.  
-  5. Always include a one-sentence rationale under “observation” explaining the deduction.
+  2. If it only partially meets it, score the middle option (e.g., “Somewhat”).  
+  3. Only score “1”/“2”/“4” etc. when you find unambiguous, on-point evidence.  
+  4. Always include a one-sentence rationale under “observation” explaining the deduction.
 
   **OUTPUT FORMAT:**
   - After you evaluate, output **only** valid JSON—no free text, no markdown, no checkboxes.
@@ -165,6 +178,12 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       }
     }
 
+  **VERIFICATION CHECKLIST:**
+  Before finalizing your evaluation:
+  1. Confirm each score has supporting evidence from the transcript
+  2. Verify all required rubric items are scored
+  3. Check that observations are factual and not interpretive
+  4. Ensure JSON structure is valid and complete
 
   Below is the Master Evaluation Form rubric you must follow:
 
@@ -924,8 +943,9 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
 
   // Create the user message with the transcript
   const userMessage = `Here is the call transcript to evaluate. The transcript includes a summary followed by the conversation between the AGENT (counselor) and CUSTOMER (caller). 
-  Now act as a master evaluator and based on all the infromation you have, analyze the transcript according. Give accurate and detailed assessment which is free of any form of bias, 
-  you don't always have to give a full score, you have to evaluate s that we can provide a constructive feedback and improve overall performance of the counselor is necessary.
+  Now act as a master evaluator and based on all the infromation you have, analyze the transcript accordingly. Give accurate and detailed assessment which is free of any form of bias, 
+  you don't always have to give a full score, you have to evaluate such that we can provide a constructive feedback and improve overall performance of the counselor.
+  This evaluation will be used to provide feedback to the counselor and improve our crisis intervention services.
 
   SUMMARY:
   ${formattedTranscript.summary}
@@ -933,7 +953,22 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   TRANSCRIPT:
   ${transcriptText}
 
-  Please analyze this transcript according to Boys Town's QA rubric and provide a detailed assessment.`;
+  Please analyze this transcript according to Boys Town's QA rubric and provide a detailed assessment. 
+
+  **EVALUATION INSTRUCTIONS:**
+  1. Evaluate strictly according to the Boys Town rubric criteria
+  2. Pay particular attention to the counselor's use of the POP model and safety assessment
+  3. Provide specific evidence with timestamps for each score
+  4. Be objective and consistent in your scoring
+  5. Return only the JSON evaluation results without additional commentary
+
+  Your evaluation will directly impact counselor training and service quality, so accuracy and consistency are essential.
+  
+  After successfully analyzing the transcript and generating the output, take some time to reflect back on the analysis you did,
+  see whether it meets all the requirements and if it is accurate, detailed and free of any form of bias. If you see any issues,
+  please correct them and then return the final output. Make sure the results needs to be very accurte as it will help us to 
+  improve overall performance of the counselor which ultimately will result in better service to our customers and help 
+  those who are in need of help.  `;
 
   try {
     // Use the Conversational API with the correct structure
