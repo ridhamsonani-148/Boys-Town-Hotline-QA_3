@@ -81,6 +81,7 @@ interface AggregatedScores {
   totalPossibleScore: number;
   percentageScore: number;
   criteria: string;
+  processingError?: string;
 }
 
 export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsEvent> => {
@@ -102,11 +103,113 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
       throw new Error(`Empty response body for ${resultKey}`);
     }
     
-    // Parse the LLM output
-    const llmOutput: LLMOutput = JSON.parse(body);
+    let llmOutput: LLMOutput;
+    let processingError: string | null = null;
+    
+    try {
+      // First attempt to parse as-is
+      const parsedBody = JSON.parse(body);
+      
+      // Case 1: Standard JSON format with expected fields
+      if (Object.keys(parsedBody).includes('Tone') || 
+          Object.keys(parsedBody).includes('Professional')) {
+        console.log('Found standard JSON format with expected fields');
+        llmOutput = parsedBody;
+      }
+      // Case 2: Wrapped in raw_analysis
+      else if (parsedBody.raw_analysis) {
+        console.log('Found raw_analysis wrapper, extracting JSON');
+        let jsonString = parsedBody.raw_analysis;
+        // Remove markdown code block markers if present
+        jsonString = jsonString.replace(/```json\n/, '').replace(/```/g, '');
+        
+        try {
+          llmOutput = JSON.parse(jsonString);
+          console.log('Successfully parsed JSON from raw_analysis field');
+        } catch (parseError) {
+          console.log('Failed to parse raw_analysis directly, trying regex extraction');
+          // Try to extract JSON using regex if parsing fails
+          const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              llmOutput = JSON.parse(jsonMatch[0]);
+              console.log('Successfully extracted JSON using regex');
+            } catch (e) {
+              throw new Error(`Failed to extract valid JSON: ${e}`);
+            }
+          } else {
+            throw new Error(`No JSON pattern found in raw_analysis`);
+          }
+        }
+      }
+      // Case 3: Other unexpected structure - try to find JSON anywhere in the response
+      else {
+        console.log('Unrecognized format, searching for JSON pattern');
+        const stringBody = JSON.stringify(parsedBody);
+        // Look for a pattern that likely contains our scoring JSON
+        const jsonMatch = stringBody.match(/\{[\s\S]*"Tone"[\s\S]*"Professional"[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            llmOutput = JSON.parse(jsonMatch[0]);
+            console.log('Found and parsed JSON pattern in unrecognized format');
+          } catch (e) {
+            throw new Error(`Found JSON-like pattern but failed to parse: ${e}`);
+          }
+        } else {
+          throw new Error(`Unrecognized response format`);
+        }
+      }
+    } catch (error: any) {
+      console.error(`Error processing LLM output: ${error}`);
+      processingError = `Error processing LLM output: ${error.message}`;
+      // Create an empty structure as fallback
+      llmOutput = {};
+    }
+    
+    // Normalize field names to handle variations
+    const normalizedOutput: LLMOutput = {};
+    const fieldMappings: {[key: string]: string} = {
+      'Suicidal Safety Assessment': 'Suicide Safety Assessment-SSA Initiation and Completion',
+      'Suicide Assessment': 'Suicide Safety Assessment-SSA Initiation and Completion',
+      'SSA': 'Suicide Safety Assessment-SSA Initiation and Completion',
+      'Suicidal Safety': 'Suicide Safety Assessment-SSA Initiation and Completion',
+      'Buffers': 'Exploration of Buffers',
+      'Protective Factors': 'Exploration of Buffers',
+      'Exploration of Protective Factors': 'Exploration of Buffers',
+      'Concrete Plan': 'Identifies a Concrete Plan of Safety and Well-being',
+      'Safety Plan': 'Identifies a Concrete Plan of Safety and Well-being',
+      'Identifies Concrete Plan': 'Identifies a Concrete Plan of Safety and Well-being',
+      'Termination': 'Appropriate Termination',
+      'Follow Up': 'Appropriate Termination',
+      'POP Model - No Rush': 'POP Model - does not rush',
+      'POP Model - No Dwell': 'POP Model - does not dwell',
+      'Conversational': 'Conversational Style',
+      'Initial Statement': 'Supportive Initial Statement',
+      'Supportive Statement': 'Supportive Initial Statement',
+      'Affirmation': 'Affirmation and Praise',
+      'Reflection': 'Reflection of Feelings',
+      'Explores Problems': 'Explores Problem(s)',
+      'Values Person': 'Values the Person',
+      'Non Judgmental': 'Non-Judgmental',
+      'Non-judgmental': 'Non-Judgmental',
+      'Clarifies Safety': 'Clarifies Non-Suicidal Safety',
+      'Collaborates Options': 'Restates then Collaborates Options',
+      'Restates Options': 'Restates then Collaborates Options'
+    };
+    
+    // Copy fields with normalization
+    for (const [key, value] of Object.entries(llmOutput)) {
+      const normalizedKey = fieldMappings[key] || key;
+      normalizedOutput[normalizedKey] = value;
+    }
     
     // Aggregate scores by category
-    const aggregatedScores = aggregateScores(llmOutput);
+    const aggregatedScores = aggregateScores(normalizedOutput);
+    
+    // Add processing error information if any
+    if (processingError) {
+      aggregatedScores.processingError = processingError;
+    }
     
     // Create the aggregated result key in the results folder
     const aggregatedKey = resultKey.replace('llmOutput/', '').replace('analysis_', 'aggregated_');
