@@ -209,6 +209,24 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
     // Add processing error information if any
     if (processingError) {
       aggregatedScores.processingError = processingError;
+      console.error(`Processing error: ${processingError}`);
+    }
+    
+    // Check if all criteria fields are empty and fail the execution if so
+    let hasAnyCriteria = false;
+    for (const categoryKey in aggregatedScores.categories) {
+      if (Object.keys(aggregatedScores.categories[categoryKey].criteria).length > 0) {
+        hasAnyCriteria = true;
+        break;
+      }
+    }
+    
+    if (!hasAnyCriteria) {
+      const errorMessage = "CRITICAL ERROR: Failed to extract any criteria from LLM output. All criteria fields are empty.";
+      console.error(errorMessage);
+      
+      // Throw an error to fail the Step Function execution
+      throw new Error(errorMessage);
     }
     
     // Create the aggregated result key in the results folder
