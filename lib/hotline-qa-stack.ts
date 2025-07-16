@@ -136,6 +136,18 @@ export class HotlineQaStack extends cdk.Stack {
       },
       description: 'Analyzes transcripts using Amazon Nova Lite',
     });
+    
+    // Create Lambda function for aggregating scores
+    const aggregateScoresFunction = new lambdaNodejs.NodejsFunction(this, 'AggregateScoresFunction', {
+      entry: path.join(__dirname, '../src/functions/aggregate-scores.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        BUCKET_NAME: this.storageBucket.bucketName,
+      },
+      description: 'Aggregates scores from LLM analysis and calculates final scores',
+    });
 
     // Grant Lambda permissions to use Transcribe and PassRole
     transcribeFunction.addToRolePolicy(new iam.PolicyStatement({
@@ -174,6 +186,7 @@ export class HotlineQaStack extends cdk.Stack {
     this.storageBucket.grantReadWrite(checkTranscribeStatusFunction);
     this.storageBucket.grantReadWrite(formatFunction);
     this.storageBucket.grantReadWrite(analyzeLLMFunction);
+    this.storageBucket.grantReadWrite(aggregateScoresFunction);
     
     // Create Step Functions tasks
     const startTranscribeTask = new tasks.LambdaInvoke(this, 'StartTranscribeJob', {
@@ -195,6 +208,11 @@ export class HotlineQaStack extends cdk.Stack {
       lambdaFunction: analyzeLLMFunction,
       outputPath: '$.Payload',
     });
+    
+    const aggregateScoresTask = new tasks.LambdaInvoke(this, 'AggregateScores', {
+      lambdaFunction: aggregateScoresFunction,
+      outputPath: '$.Payload',
+    });
 
     // Create Step Functions workflow
     const waitX = new sfn.Wait(this, 'Wait 30 Seconds', {
@@ -212,7 +230,7 @@ export class HotlineQaStack extends cdk.Stack {
       .next(
         checkJobComplete
           .when(sfn.Condition.isNotPresent('$.transcriptKey'), waitX.next(checkTranscribeStatusTask))
-          .otherwise(formatTranscriptTask.next(analyzeLLMTask))
+          .otherwise(formatTranscriptTask.next(analyzeLLMTask.next(aggregateScoresTask)))
       );
 
     const stateMachine = new sfn.StateMachine(this, 'HotlineQAWorkflow', {
@@ -267,6 +285,11 @@ export class HotlineQaStack extends cdk.Stack {
       description: 'S3 prefix for analysis results',
     });
     
+    new cdk.CfnOutput(this, 'LLMOutputPrefix', {
+      value: 'results/llmOutput/',
+      description: 'S3 prefix for LLM analysis results',
+    });
+    
     // Output the Lambda function names for easier testing
     new cdk.CfnOutput(this, 'StartWorkflowFunctionName', {
       value: startWorkflowFunction.functionName,
@@ -291,6 +314,11 @@ export class HotlineQaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AnalyzeLLMFunctionName', {
       value: analyzeLLMFunction.functionName,
       description: 'Name of the Lambda function that analyzes transcripts using Bedrock',
+    });
+    
+    new cdk.CfnOutput(this, 'AggregateScoresFunctionName', {
+      value: aggregateScoresFunction.functionName,
+      description: 'Name of the Lambda function that aggregates scores from LLM analysis',
     });
     
     // Output the state machine ARN for reference

@@ -20,7 +20,7 @@ if (!BUCKET_NAME) {
 }
 
 // Model ID for Amazon Nova Pro
-const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.amazon.nova-premier-v1:0';
+const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -89,8 +89,8 @@ export const handler = async (event: AnalyzeEvent): Promise<any> => {
     // Parse the formatted transcript
     const formattedTranscript: FormattedTranscript = JSON.parse(body);
     
-    // Create the result key in the results folder
-    const resultKey = formattedKey.replace('transcripts/formatted/', 'results/').replace('formatted_', 'analysis_');
+    // Create the result key in the results/llmOutput folder
+    const resultKey = formattedKey.replace('transcripts/formatted/', 'results/llmOutput/').replace('formatted_', 'analysis_');
     
     // Analyze the transcript using Bedrock
     const analysisResult = await analyzeTranscript(formattedTranscript);
