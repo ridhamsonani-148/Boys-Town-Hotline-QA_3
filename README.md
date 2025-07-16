@@ -34,6 +34,30 @@ The solution uses:
    - Formats the transcript to extract just the summary and conversation, saving to `transcripts/formatted/`
    - Analyzes the transcript against Boys Town's QA rubric using AWS Bedrock (Amazon Nova Lite) and stores results in `results/llmOutput/`
    - Aggregates scores by category and calculates final scores, saving to `results/`
+   - Updates counselor evaluation records in DynamoDB for tracking and analysis
+
+## Counselor Tracking
+
+The system automatically tracks counselor evaluations in a DynamoDB table. Each evaluation is linked to a counselor based on the audio filename pattern:
+
+```
+FirstName_LastName_UniqueIdentifier.wav
+```
+
+For example, `John_Smith_20230615.wav` would be associated with counselor "John Smith".
+
+The DynamoDB table stores:
+- Counselor ID and name
+- Evaluation date and audio filename
+- Category scores (Rapport Skills, Counseling Skills, etc.)
+- Total score and percentage
+- Criteria rating (Meets Criteria, Improvement Needed, Not at Criteria)
+- Link to the full evaluation results in S3
+
+You can query the DynamoDB table to:
+- View all evaluations for a specific counselor
+- Track performance trends over time
+- Generate reports by counselor or evaluation criteria
 
 ## Deployment Instructions
 

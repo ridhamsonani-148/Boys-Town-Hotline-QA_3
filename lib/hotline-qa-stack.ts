@@ -7,6 +7,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as path from 'path';
 
 export interface HotlineQaStackProps extends cdk.StackProps {
@@ -28,6 +29,11 @@ export class HotlineQaStack extends cdk.Stack {
    * The S3 bucket that will store call recordings, transcripts, and results
    */
   public readonly storageBucket: s3.Bucket;
+  
+  /**
+   * The DynamoDB table that will store counselor evaluation results
+   */
+  public readonly counselorEvaluationsTable: dynamodb.Table;
   
   constructor(scope: Construct, id: string, props: HotlineQaStackProps) {
     super(scope, id, props);
@@ -71,6 +77,25 @@ export class HotlineQaStack extends cdk.Stack {
         },
       ],
     });
+    
+    // Create DynamoDB table for counselor evaluations
+    this.counselorEvaluationsTable = new dynamodb.Table(this, 'CounselorEvaluationsTable', {
+      tableName: `${bucketNamePrefix}-counselor-evaluations-${envName}`,
+      partitionKey: { name: 'CounselorId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'EvaluationId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // On-demand capacity
+      removalPolicy: cdk.RemovalPolicy.RETAIN, // Protect against accidental deletion
+      pointInTimeRecovery: true, // Enable point-in-time recovery for data protection
+    });
+    
+    // Add Global Secondary Index for querying by date
+    this.counselorEvaluationsTable.addGlobalSecondaryIndex({
+      indexName: 'EvaluationDateIndex',
+      partitionKey: { name: 'CounselorId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'EvaluationDate', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+    
     
     // Create IAM role for Transcribe with proper permissions
     const transcribeRole = new iam.Role(this, 'TranscribeRole', {
@@ -148,6 +173,19 @@ export class HotlineQaStack extends cdk.Stack {
       },
       description: 'Aggregates scores from LLM analysis and calculates final scores',
     });
+    
+    // Create Lambda function for updating counselor records in DynamoDB
+    const updateCounselorRecordsFunction = new lambdaNodejs.NodejsFunction(this, 'UpdateCounselorRecordsFunction', {
+      entry: path.join(__dirname, '../src/functions/update-counselor-records.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        BUCKET_NAME: this.storageBucket.bucketName,
+        TABLE_NAME: this.counselorEvaluationsTable.tableName,
+      },
+      description: 'Updates counselor evaluation records in DynamoDB',
+    });
 
     // Grant Lambda permissions to use Transcribe and PassRole
     transcribeFunction.addToRolePolicy(new iam.PolicyStatement({
@@ -187,6 +225,10 @@ export class HotlineQaStack extends cdk.Stack {
     this.storageBucket.grantReadWrite(formatFunction);
     this.storageBucket.grantReadWrite(analyzeLLMFunction);
     this.storageBucket.grantReadWrite(aggregateScoresFunction);
+    this.storageBucket.grantRead(updateCounselorRecordsFunction);
+    
+    // Grant Lambda access to DynamoDB
+    this.counselorEvaluationsTable.grantWriteData(updateCounselorRecordsFunction);
     
     // Create Step Functions tasks
     const startTranscribeTask = new tasks.LambdaInvoke(this, 'StartTranscribeJob', {
@@ -213,6 +255,11 @@ export class HotlineQaStack extends cdk.Stack {
       lambdaFunction: aggregateScoresFunction,
       outputPath: '$.Payload',
     });
+    
+    const updateCounselorRecordsTask = new tasks.LambdaInvoke(this, 'UpdateCounselorRecords', {
+      lambdaFunction: updateCounselorRecordsFunction,
+      outputPath: '$.Payload',
+    });
 
     // Create Step Functions workflow
     const waitX = new sfn.Wait(this, 'Wait 30 Seconds', {
@@ -230,7 +277,7 @@ export class HotlineQaStack extends cdk.Stack {
       .next(
         checkJobComplete
           .when(sfn.Condition.isNotPresent('$.transcriptKey'), waitX.next(checkTranscribeStatusTask))
-          .otherwise(formatTranscriptTask.next(analyzeLLMTask.next(aggregateScoresTask)))
+          .otherwise(formatTranscriptTask.next(analyzeLLMTask.next(aggregateScoresTask.next(updateCounselorRecordsTask))))
       );
 
     const stateMachine = new sfn.StateMachine(this, 'HotlineQAWorkflow', {
@@ -319,6 +366,17 @@ export class HotlineQaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AggregateScoresFunctionName', {
       value: aggregateScoresFunction.functionName,
       description: 'Name of the Lambda function that aggregates scores from LLM analysis',
+    });
+    
+    new cdk.CfnOutput(this, 'UpdateCounselorRecordsFunctionName', {
+      value: updateCounselorRecordsFunction.functionName,
+      description: 'Name of the Lambda function that updates counselor records in DynamoDB',
+    });
+    
+    // Output the DynamoDB table name
+    new cdk.CfnOutput(this, 'CounselorEvaluationsTableName', {
+      value: this.counselorEvaluationsTable.tableName,
+      description: 'Name of the DynamoDB table for counselor evaluations',
     });
     
     // Output the state machine ARN for reference
