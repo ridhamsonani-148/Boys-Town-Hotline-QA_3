@@ -42,9 +42,12 @@ export class HotlineQaStack extends cdk.Stack {
     const envName = props.envName || 'dev';
     const bucketNamePrefix = props.bucketNamePrefix || 'boys-town-hotline-qa';
     
-    // Create the S3 bucket with focused parameterization
+    // Get AWS account ID to ensure globally unique names
+    const accountId = cdk.Stack.of(this).account;
+    
+    // Create the S3 bucket with focused parameterization and unique name
     this.storageBucket = new s3.Bucket(this, 'StorageBucket', {
-      bucketName: `${bucketNamePrefix}-${envName}`,
+      bucketName: `${bucketNamePrefix}-${envName}-${accountId}`,
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -80,7 +83,7 @@ export class HotlineQaStack extends cdk.Stack {
     
     // Create DynamoDB table for counselor evaluations
     this.counselorEvaluationsTable = new dynamodb.Table(this, 'CounselorEvaluationsTable', {
-      tableName: `${bucketNamePrefix}-counselor-evaluations-${envName}`,
+      tableName: `${bucketNamePrefix}-counselor-evaluations-${envName}-${accountId}`,
       partitionKey: { name: 'CounselorId', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'EvaluationId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // On-demand capacity
