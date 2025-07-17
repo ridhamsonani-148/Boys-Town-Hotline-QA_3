@@ -20,7 +20,7 @@ if (!BUCKET_NAME) {
 }
 
 // Model ID for Amazon Nova Pro
-const MODEL_ID = 'arn:aws:bedrock:us-east-1:216989103356:inference-profile/us.amazon.nova-premier-v1:0';
+const MODEL_ID = 'amazon.nova-pro-v1:0';
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
