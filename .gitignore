@@ -8,6 +8,7 @@ node_modules/
 # TypeScript compiled files
 !jest.config.js
 *.d.ts
+dist/
 
 # Coverage directory
 coverage/
