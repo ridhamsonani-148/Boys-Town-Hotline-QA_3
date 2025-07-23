@@ -1,31 +1,38 @@
 import { useState } from 'react';
 import './Navbar.css';
+import logo from '../../assets/logo.png';
 
-const imgLogo = "http://localhost:3845/assets/b3e0cc9a7907e642530853d1ab9b2a147e8f9e11.png";
-const imgSearch = "http://localhost:3845/assets/3b7bb4f9bc22fda1f4fc96398f42fb95385e503c.svg";
-const imgUpload = "http://localhost:3845/assets/c6ea86dc69f9478038f2bf0a3473e2e421c4bbfc.svg";
-const imgProfile = "http://localhost:3845/assets/1af8d994141246153693a599c017705356b95de1.svg";
-const imgPerson = "http://localhost:3845/assets/627d492e7c95cfbccc4574266f4dce2d0ee267c5.svg";
+const PersonIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <path d="M10 10C12.7614 10 15 7.76142 15 5C15 2.23858 12.7614 0 10 0C7.23858 0 5 2.23858 5 5C5 7.76142 7.23858 10 10 10ZM10 12.5C6.66667 12.5 0 14.1667 0 17.5V20H20V17.5C20 14.1667 13.3333 12.5 10 12.5Z" fill="currentColor"/>
+  </svg>
+);
+
+const UploadIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <path d="M10 1L6 5H8V12H12V5H14L10 1ZM4 17V15H16V17C16 17.55 15.55 18 15 18H5C4.45 18 4 17.55 4 17Z" fill="currentColor"/>
+  </svg>
+);
 
 function Navbar({ activeTab, setActiveTab }) {
 
   return (
     <div className="navbar">
-      <div className="navbar-logo" style={{ backgroundImage: `url('${imgLogo}')` }} />
+      <div className="navbar-logo" style={{ backgroundImage: `url('${logo}')` }} />
       
       <div className="navbar-search">
         <div 
           className={`search-tab ${activeTab === 'upload' ? 'active' : ''}`}
           onClick={() => setActiveTab('upload')}
         >
-          <img src={imgUpload} alt="" className="tab-icon" />
+          <UploadIcon className="tab-icon" />
           <span>Upload</span>
         </div>
         <div 
           className={`search-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('dashboard')}
         >
-          <img src={imgSearch} alt="" className="tab-icon" />
+          <PersonIcon className="tab-icon" />
           <span>Agents Dashboard</span>
         </div>
       </div>

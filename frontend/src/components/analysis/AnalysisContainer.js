@@ -2,15 +2,49 @@ import { useState, useEffect } from 'react';
 import './AnalysisContainer.css';
 import { uploadService } from '../../services/uploadService';
 
-const imgWestArrow = "http://localhost:3845/assets/dab477c6ade2d19b6d463e2d6994e32669d7440c.svg";
-const imgWestIcon = "http://localhost:3845/assets/9fc49a8ad4582ec588abb9db25500f5811dbc74c.svg";
-const imgClipboard = "http://localhost:3845/assets/ef6e5e33bf0c7a55016af261878a9906b26dd5b9.svg";
-const imgClipboardIcon = "http://localhost:3845/assets/4dbbd987c8be6477898b3913e30b19bbae904744.svg";
-const imgProcessing = "http://localhost:3845/assets/8f05e96a0b2fcbd4a99aa6970b48c8ebc9cf91ee.png";
-const imgCompleted = "http://localhost:3845/assets/a8391a04da7bf38a69d463d0c77d237f28669fc0.png";
-const imgFailed = "http://localhost:3845/assets/11c06d5ad7fb3f1c2849600fe1b11601148851c6.png";
-const imgLine = "http://localhost:3845/assets/8ae80177cc472c24311f00417cfb0666c2643b58.svg";
-const imgThickLine = "http://localhost:3845/assets/f86bed1d51cb8bb0f2405a124d7f71a0e86695ee.svg";
+const WestIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+    <path d="M7.5 2L3.5 6L7.5 10" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const ClipboardIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <path d="M14 2H12.5C12.1 0.8 11 0 9.7 0H8.3C7 0 5.9 0.8 5.5 2H4C2.9 2 2 2.9 2 4V16C2 17.1 2.9 18 4 18H14C15.1 18 16 17.1 16 16V4C16 2.9 15.1 2 14 2ZM9 1.5C9.3 1.5 9.5 1.7 9.5 2S9.3 2.5 9 2.5S8.5 2.3 8.5 2S8.7 1.5 9 1.5ZM14 16H4V4H5.5V3.5C5.5 3.2 5.7 3 6 3H12C12.3 3 12.5 3.2 12.5 3.5V4H14V16Z" fill="#000"/>
+  </svg>
+);
+
+const ProcessingIcon = ({ className }) => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className={`${className} spinning`}>
+    <circle cx="10" cy="10" r="8" stroke="#124dac" strokeWidth="2" strokeDasharray="25 5" fill="none"/>
+  </svg>
+);
+
+const CompletedIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="10" fill="#377d20"/>
+    <path d="M6 10L8.5 12.5L14 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const FailedIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="10" fill="#d12121"/>
+    <path d="M7 7L13 13M13 7L7 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const LineIcon = () => (
+  <svg width="100%" height="1" viewBox="0 0 100 1" fill="none">
+    <line x1="0" y1="0.5" x2="100" y2="0.5" stroke="#e0e0e0"/>
+  </svg>
+);
+
+const ThickLineIcon = () => (
+  <svg width="100%" height="2" viewBox="0 0 100 2" fill="none">
+    <line x1="0" y1="1" x2="100" y2="1" stroke="#ccc" strokeWidth="2"/>
+  </svg>
+);
 
 function AnalysisContainer({ fileName, onBackToUpload }) {
   const [fileDetails, setFileDetails] = useState([]);
@@ -70,31 +104,27 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
     switch(status) {
       case 'processing':
         return {
-          icon: imgProcessing,
+          icon: ProcessingIcon,
           text: 'Processing....',
-          color: '#124dac',
-          isSpinning: true
+          color: '#124dac'
         };
       case 'completed':
         return {
-          icon: imgCompleted,
+          icon: CompletedIcon,
           text: 'Completed',
-          color: '#377d20',
-          isSpinning: false
+          color: '#377d20'
         };
       case 'failed':
         return {
-          icon: imgFailed,
+          icon: FailedIcon,
           text: 'Failed',
-          color: '#d12121',
-          isSpinning: false
+          color: '#d12121'
         };
       default:
         return {
-          icon: imgProcessing,
+          icon: ProcessingIcon,
           text: 'Processing....',
-          color: '#124dac',
-          isSpinning: true
+          color: '#124dac'
         };
     }
   };
@@ -104,8 +134,7 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
       <div className="analysis-container">
         <div className="back-link" onClick={onBackToUpload}>
           <div className="back-icon">
-            <img src={imgWestArrow} alt="" className="west-arrow" />
-            <img src={imgWestIcon} alt="" className="west-icon" />
+            <WestIcon className="west-icon" />
           </div>
           <span>Back to Upload</span>
         </div>
@@ -113,8 +142,7 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
         <div className="analysis-content">
         <div className="analysis-header">
           <div className="clipboard-icon">
-            <img src={imgClipboard} alt="" className="clipboard-base" />
-            <img src={imgClipboardIcon} alt="" className="clipboard-icon-inner" />
+            <ClipboardIcon className="clipboard-base" />
           </div>
           <h2>Agent Performance Records</h2>
         </div>
@@ -128,7 +156,7 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
             <div className="header-cell status">STATUS</div>
           </div>
           
-          <img src={imgThickLine} alt="" className="header-divider" />
+          <ThickLineIcon className="header-divider" />
           
           {fileDetails.map((file, index) => (
             <div key={file.id}>
@@ -140,20 +168,17 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
                 <div className="cell status">
                   {(() => {
                     const statusInfo = getStatusDisplay(file.status);
+                    const IconComponent = statusInfo.icon;
                     return (
                       <>
-                        <img 
-                          src={statusInfo.icon} 
-                          alt="" 
-                          className={`status-icon ${statusInfo.isSpinning ? 'spinning' : ''}`} 
-                        />
+                        <IconComponent className="status-icon" />
                         <span style={{ color: statusInfo.color }}>{statusInfo.text}</span>
                       </>
                     );
                   })()} 
                 </div>
               </div>
-              <img src={imgLine} alt="" className="row-divider" />
+              <LineIcon className="row-divider" />
             </div>
           ))}
         </div>
