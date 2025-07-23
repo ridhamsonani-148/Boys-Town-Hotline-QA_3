@@ -1,0 +1,288 @@
+.performance-rubrics-container {
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+  padding: 0;
+  padding-bottom: 10px;
+  width: 80%;
+  margin: 0 auto;
+}
+
+.performance-rubrics-header {
+  margin-bottom: 10px;
+  margin-top: 5px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.back-icon-container {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+
+.west-arrow {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+}
+
+.west-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+}
+
+.file-info-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  height: 90px;
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.file-icon-container {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-right: 20px;
+}
+
+.headset-icon {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.headset-icon-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+}
+
+.file-name {
+  font-size: 20px;
+  font-weight: 500;
+  color: #000000;
+  flex: 1;
+  margin-left: 20px;
+}
+
+.overall-score {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  margin-right: 20px;
+}
+
+.status-badge {
+  background: #ffffff;
+  border: 1px solid #377d20;
+  border-radius: 10px;
+  padding: 6px 12px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.status-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #377d20;
+}
+
+.rubrics-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  padding: 20px;
+}
+
+.rubrics-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #000000;
+  margin: 0 0 20px 0;
+}
+
+.rubrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rubric-item {
+  border: 1px solid #d9d9d9;
+  border-radius: 10px;
+  padding: 20px;
+  background: #ffffff;
+  position: relative;
+}
+
+.rubric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.rubric-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.expand-arrow {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s ease;
+  transform: rotate(-90deg);
+}
+
+.expand-arrow.expanded {
+  transform: rotate(0deg);
+}
+
+.rubric-name {
+  font-size: 20px;
+  font-weight: 500;
+  color: #000000;
+  margin: 0;
+}
+
+.rubric-score {
+  font-size: 16px;
+  font-weight: 600;
+  color: #377d20;
+}
+
+.rubric-status {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rubric-status .status-badge {
+  background: #ffffff;
+  border: 1px solid #377d20;
+  border-radius: 10px;
+  padding: 6px 12px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.progress-bar {
+  position: relative;
+  margin-top: 20px;
+}
+
+.progress-background {
+  background: #d9d9d9;
+  height: 18px;
+  border-radius: 10px;
+  width: 100%;
+}
+
+.progress-fill {
+  background: #377d20;
+  height: 18px;
+  border-radius: 10px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.performance-rubrics-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 18px;
+  color: #666;
+}
+
+.criteria-details {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.criteria-item {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+
+.criteria-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.criteria-progress-bar {
+  position: relative;
+  margin: 6px 0;
+}
+
+.criteria-progress-background {
+  background: #e9e9e9;
+  height: 6px;
+  border-radius: 3px;
+  width: 100%;
+}
+
+.criteria-progress-fill {
+  background: #377d20;
+  height: 6px;
+  border-radius: 3px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.criteria-name {
+  font-weight: 600;
+  color: #000;
+  font-size: 0.9em;
+}
+
+.criteria-score {
+  font-weight: 600;
+  color: #377d20;
+  font-size: 0.9em;
+}
+
+.criteria-observation {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.criteria-evidence {
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+  background: #f0f0f0;
+  padding: 4px;
+  border-radius: 3px;
+}
