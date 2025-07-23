@@ -1,0 +1,346 @@
+.dashboard-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding-top: 140px;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Filter dropdown styles */
+.filter-dropdown {
+  position: absolute;
+  top: 40px;
+  right: 134px;
+  z-index: 10;
+}
+
+.filter-btn {
+  background: #094677;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  width: 83px;
+}
+
+.dropdown-arrow {
+  width: 12px;
+  height: 12px;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+  margin-top: 4px;
+}
+
+.dropdown-item {
+  padding: 12px 16px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #323232;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f8f9fa;
+}
+
+.dropdown-item.active {
+  background: #094677;
+  color: #ffffff;
+}
+
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 306px);
+  gap: 40px 67px;
+}
+
+/* Agent Details View */
+.agent-details-view {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1400px;
+  padding: 0 20px;
+}
+
+.agent-details-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.back-icon-container {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
+
+.west-arrow {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+}
+
+.west-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+}
+
+.back-text {
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.agent-details-content {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+/* Agent Profile Card */
+.agent-profile-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  width: 363px;
+  height: 287px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+}
+
+.agent-avatar-large {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 22px;
+}
+
+.avatar-bg-large {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-icon-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-icon-large {
+  width: 60px;
+  height: 60px;
+}
+
+.agent-name-large {
+  font-size: 24px;
+  font-weight: 500;
+  margin: 0 0 16px 0;
+  text-align: center;
+}
+
+.agent-contact-id {
+  font-size: 16px;
+  font-weight: 400;
+  color: #323232;
+  margin: 0;
+  text-align: center;
+}
+
+/* Call History Card */
+.call-history-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  width: 899px;
+  height: 521px;
+  padding: 20px;
+}
+
+.call-history-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.call-icon-container {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
+}
+
+.call-icon {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.call-icon-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+}
+
+.call-history-title {
+  font-size: 20px;
+  font-weight: 400;
+  margin: 0;
+}
+
+.call-history-table {
+  width: 100%;
+}
+
+.table-header {
+  display: flex;
+  padding: 10px 0;
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.table-divider {
+  height: 1px;
+  width: 100%;
+  background-color: #e0e0e0;
+  margin: 10px 0;
+}
+
+.table-row {
+  display: flex;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.column {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-name-column {
+  flex: 3;
+}
+
+.date-column {
+  flex: 1;
+  text-align: left;
+}
+
+.score-column {
+  flex: 1;
+  text-align: right;
+  padding-right: 20px;
+}
+
+/* Total Cases Summary Card */
+.total-cases-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  width: 899px;
+  height: 143px;
+  padding: 20px;
+  margin-left: 383px;
+}
+
+.total-cases-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 15px 0;
+}
+
+.total-cases-divider {
+  height: 1px;
+  width: 100%;
+  background-color: #e0e0e0;
+  margin-bottom: 20px;
+}
+
+.total-cases-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+}
+
+.cases-section {
+  width: 150px;
+  text-align: center;
+}
+
+.cases-count {
+  font-size: 20px;
+  font-weight: 400;
+  color: #094677;
+  margin: 0;
+}
+
+.vertical-divider {
+  width: 1px;
+  height: 100%;
+  background-color: #e0e0e0;
+}
+
+.analysis-section {
+  width: 300px;
+  text-align: center;
+}
+
+.analysis-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 5px 0;
+}
+
+.analysis-percentage {
+  font-size: 20px;
+  font-weight: 400;
+  color: #094677;
+  margin: 0;
+}
