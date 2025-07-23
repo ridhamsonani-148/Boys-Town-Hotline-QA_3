@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './AgentDetails.css';
 import PerformanceRubrics from '../PerformanceRubrics/PerformanceRubrics';
+import { agentService } from '../../services/agentService';
 
 // Import icons
 const imgWest = "http://localhost:3845/assets/dab477c6ade2d19b6d463e2d6994e32669d7440c.svg";
@@ -15,7 +16,20 @@ const imgLine14 = "http://localhost:3845/assets/9082e57296c9ee82cca1c2ee794dfcdd
 function AgentDetails({ agent, onBack }) {
   const [showRubrics, setShowRubrics] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedPrograms, setSelectedPrograms] = useState(agent.programs || []);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const callHistory = agent.evaluations || [];
+  
+  const programOptions = ['National Hotline Program', 'Nebraska Crisis Program'];
+  
+  const handleProgramToggle = async (program) => {
+    const newPrograms = selectedPrograms.includes(program)
+      ? selectedPrograms.filter(p => p !== program)
+      : [...selectedPrograms, program];
+    
+    setSelectedPrograms(newPrograms);
+    await agentService.updateAgentPrograms(agent.contactId, newPrograms);
+  };
 
   const handleFileClick = (call) => {
     setSelectedFile(call);
@@ -63,6 +77,37 @@ function AgentDetails({ agent, onBack }) {
             </div>
             <h2 className="profile-name">{agent.name}</h2>
             <p className="profile-contact-id">Contact ID: {agent.contactId}</p>
+            
+            <div className="program-section">
+              <label className="program-label">Programs:</label>
+              <div className="program-dropdown">
+                <div 
+                  className="program-dropdown-trigger"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  <span>{selectedPrograms.length > 0 ? selectedPrograms.join(', ') : 'Select programs...'}</span>
+                  <span className="dropdown-arrow">{isDropdownOpen ? '▲' : '▼'}</span>
+                </div>
+                {isDropdownOpen && (
+                  <div className="program-dropdown-menu">
+                    {programOptions.map(program => (
+                      <div
+                        key={program}
+                        className={`program-option ${selectedPrograms.includes(program) ? 'selected' : ''}`}
+                        onClick={() => handleProgramToggle(program)}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedPrograms.includes(program)}
+                          readOnly
+                        />
+                        <span>{program}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

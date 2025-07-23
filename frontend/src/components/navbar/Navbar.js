@@ -30,11 +30,7 @@ function Navbar({ activeTab, setActiveTab }) {
         </div>
       </div>
       
-      <div className="navbar-profile">
-        <div className="profile-circle">
-          <img src={imgPerson} alt="" className="profile-icon" />
-        </div>
-      </div>
+      
     </div>
   );
 }

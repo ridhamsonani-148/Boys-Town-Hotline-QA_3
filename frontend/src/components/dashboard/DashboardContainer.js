@@ -54,7 +54,7 @@ function DashboardContainer() {
   
   const filteredAgents = selectedFilter === 'All' 
     ? agents 
-    : agents.filter(agent => agent.program === selectedFilter);
+    : agents.filter(agent => agent.specialization === selectedFilter);
 
   const handleAgentClick = async (agent) => {
     // Get detailed agent data including evaluations
