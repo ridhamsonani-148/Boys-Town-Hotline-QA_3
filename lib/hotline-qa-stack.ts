@@ -35,6 +35,11 @@ export class HotlineQaStack extends cdk.Stack {
    */
   public readonly counselorEvaluationsTable: dynamodb.Table;
   
+  /**
+   * The DynamoDB table that will store counselor metadata/profiles
+   */
+  public readonly counselorProfilesTable: dynamodb.Table;
+  
   constructor(scope: Construct, id: string, props: HotlineQaStackProps) {
     super(scope, id, props);
     
@@ -96,6 +101,23 @@ export class HotlineQaStack extends cdk.Stack {
       indexName: 'EvaluationDateIndex',
       partitionKey: { name: 'CounselorId', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'EvaluationDate', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+    
+    // Create DynamoDB table for counselor profiles/metadata
+    this.counselorProfilesTable = new dynamodb.Table(this, 'CounselorProfilesTable', {
+      tableName: `${bucketNamePrefix}-counselor-profiles-${envName}-${accountId}`,
+      partitionKey: { name: 'CounselorId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // On-demand capacity
+      removalPolicy: cdk.RemovalPolicy.RETAIN, // Protect against accidental deletion
+      pointInTimeRecovery: true, // Enable point-in-time recovery for data protection
+    });
+    
+    // Add Global Secondary Index for querying by program type
+    this.counselorProfilesTable.addGlobalSecondaryIndex({
+      indexName: 'ProgramTypeIndex',
+      partitionKey: { name: 'ProgramType', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'CounselorName', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
     });
     
@@ -186,8 +208,22 @@ export class HotlineQaStack extends cdk.Stack {
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
         TABLE_NAME: this.counselorEvaluationsTable.tableName,
+        COUNSELOR_PROFILES_TABLE: this.counselorProfilesTable.tableName,
       },
       description: 'Updates counselor evaluation records in DynamoDB',
+    });
+
+    // Create Lambda function for managing counselor profiles (API operations)
+    const manageCounselorProfilesFunction = new lambdaNodejs.NodejsFunction(this, 'ManageCounselorProfilesFunction', {
+      entry: path.join(__dirname, '../src/functions/manage-counselor-profiles.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        COUNSELOR_PROFILES_TABLE: this.counselorProfilesTable.tableName,
+        EVALUATIONS_TABLE: this.counselorEvaluationsTable.tableName,
+      },
+      description: 'Manages counselor profiles via API (GET, PUT, POST operations)',
     });
 
     // Grant Lambda permissions to use Transcribe and PassRole
@@ -232,6 +268,9 @@ export class HotlineQaStack extends cdk.Stack {
     
     // Grant Lambda access to DynamoDB
     this.counselorEvaluationsTable.grantWriteData(updateCounselorRecordsFunction);
+    this.counselorProfilesTable.grantReadWriteData(updateCounselorRecordsFunction);
+    this.counselorProfilesTable.grantReadWriteData(manageCounselorProfilesFunction);
+    this.counselorEvaluationsTable.grantReadData(manageCounselorProfilesFunction);
     
     // Create Step Functions tasks
     const startTranscribeTask = new tasks.LambdaInvoke(this, 'StartTranscribeJob', {
@@ -376,10 +415,20 @@ export class HotlineQaStack extends cdk.Stack {
       description: 'Name of the Lambda function that updates counselor records in DynamoDB',
     });
     
-    // Output the DynamoDB table name
+    new cdk.CfnOutput(this, 'ManageCounselorProfilesFunctionName', {
+      value: manageCounselorProfilesFunction.functionName,
+      description: 'Name of the Lambda function that manages counselor profiles via API',
+    });
+    
+    // Output the DynamoDB table names
     new cdk.CfnOutput(this, 'CounselorEvaluationsTableName', {
       value: this.counselorEvaluationsTable.tableName,
       description: 'Name of the DynamoDB table for counselor evaluations',
+    });
+    
+    new cdk.CfnOutput(this, 'CounselorProfilesTableName', {
+      value: this.counselorProfilesTable.tableName,
+      description: 'Name of the DynamoDB table for counselor profiles/metadata',
     });
     
     // Output the state machine ARN for reference

@@ -4,7 +4,8 @@ import {
 } from '@aws-sdk/client-s3';
 import {
   DynamoDBClient,
-  PutItemCommand
+  PutItemCommand,
+  GetItemCommand
 } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import * as path from 'path';
@@ -12,10 +13,10 @@ import * as path from 'path';
 const s3Client = new S3Client({});
 const dynamoClient = new DynamoDBClient({});
 
-const { BUCKET_NAME, TABLE_NAME } = process.env;
+const { BUCKET_NAME, TABLE_NAME, COUNSELOR_PROFILES_TABLE } = process.env;
 
-if (!BUCKET_NAME || !TABLE_NAME) {
-  throw new Error('Required environment variables BUCKET_NAME and TABLE_NAME must be set');
+if (!BUCKET_NAME || !TABLE_NAME || !COUNSELOR_PROFILES_TABLE) {
+  throw new Error('Required environment variables BUCKET_NAME, TABLE_NAME, and COUNSELOR_PROFILES_TABLE must be set');
 }
 
 // Input from Step Functions
@@ -138,6 +139,9 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
       console.error(`Error extracting counselor name from filename: ${fileNameWithoutExt}`, error);
       // Continue with default values
     }
+
+    // Ensure counselor profile exists
+    await ensureCounselorProfile(counselorId, counselorName);
     
     // Create a unique evaluation ID
     const evaluationId = `eval_${timestamp}`;
@@ -184,3 +188,39 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
     throw error;
   }
 };
+
+async function ensureCounselorProfile(counselorId: string, counselorName: string): Promise<void> {
+  try {
+    // Check if profile exists
+    const getCommand = new GetItemCommand({
+      TableName: COUNSELOR_PROFILES_TABLE!,
+      Key: marshall({ CounselorId: counselorId })
+    });
+
+    const response = await dynamoClient.send(getCommand);
+    
+    if (!response.Item) {
+      // Create new profile with default program
+      const profileItem = {
+        CounselorId: counselorId,
+        CounselorName: counselorName,
+        ProgramType: ['National Hotline Program'], // Default program
+        IsActive: true,
+        CreatedDate: new Date().toISOString(),
+        LastUpdated: new Date().toISOString(),
+        UpdatedBy: 'system'
+      };
+      
+      const putCommand = new PutItemCommand({
+        TableName: COUNSELOR_PROFILES_TABLE!,
+        Item: marshall(profileItem)
+      });
+
+      await dynamoClient.send(putCommand);
+      console.log(`Created new counselor profile for: ${counselorName}`);
+    }
+  } catch (error) {
+    console.error(`Error ensuring counselor profile for ${counselorId}:`, error);
+    // Don't throw - evaluation should still proceed even if profile creation fails
+  }
+}
