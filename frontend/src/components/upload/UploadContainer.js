@@ -2,17 +2,49 @@ import { useState, useRef, useEffect } from 'react';
 import './UploadContainer.css';
 import { uploadService } from '../../services/uploadService';
 
-const imgHeadsetBase = "http://localhost:3845/assets/a66be842bec527b13441dcf2743fcf4ff6738079.svg";
-const imgHeadsetMic = "http://localhost:3845/assets/3bec8d72294e72fa71bb179a6527aeceab51f3b7.svg";
-const imgCloudBase = "http://localhost:3845/assets/dab477c6ade2d19b6d463e2d6994e32669d7440c.svg";
-const imgCloudArrow = "http://localhost:3845/assets/1341436524ee09305f963b60ac028ee70c332cdc.svg";
-const imgUpgrade = "http://localhost:3845/assets/2d0036a4673d40b1ba9724f1c380e9f17ffe6c49.svg";
-const imgEllipseGreen = "http://localhost:3845/assets/6130f96df77b741cf7ae9f759e532e8e561f4d73.svg";
-const imgEllipseBlue = "http://localhost:3845/assets/cafbce33aed15be6760c1d1dbba9e85aa41a71ff.svg";
-const imgCheckBase = "http://localhost:3845/assets/8ab076a8dfc20f6877f2d8f0ab921a70237c613e.svg";
-const imgCheckMark = "http://localhost:3845/assets/df81768c556c01ffa96a3ce442aca909caabd321.svg";
-const imgRotateBase = "http://localhost:3845/assets/75979eac7f49db749d0f01011b438e1d79c0f9b5.svg";
-const imgRotateArrow = "http://localhost:3845/assets/e1257f2c51549d618e77e8cacc2dd7db4336f6f2.svg";
+const HeadsetIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 60 60" fill="none">
+    <path d="M30 5C20.335 5 12.5 12.835 12.5 22.5V30H17.5V22.5C17.5 15.596 23.096 10 30 10C36.904 10 42.5 15.596 42.5 22.5V30H47.5V22.5C47.5 12.835 39.665 5 30 5ZM7.5 32.5C5.845 32.5 4.5 33.845 4.5 35.5V45C4.5 46.655 5.845 48 7.5 48H15V32.5H7.5ZM45 32.5V48H52.5C54.155 48 55.5 46.655 55.5 45V35.5C55.5 33.845 54.155 32.5 52.5 32.5H45Z" fill="#094677"/>
+  </svg>
+);
+
+const CloudIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 40 30" fill="none">
+    <path d="M32 15C31.45 9.5 26.85 5 21 5C16.5 5 12.65 7.6 10.9 11.4C4.9 12.1 0 17.2 0 23.5C0 30.1 5.4 35.5 12 35.5H31C36.5 35.5 41 31 41 25.5C41 20.2 37 15.8 32 15Z" fill="#666"/>
+    <path d="M20 18L16 22H18V28H22V22H24L20 18Z" fill="white"/>
+  </svg>
+);
+
+const UpgradeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M8 1L4 5H6V10H10V5H12L8 1ZM2 13V11H14V13H2Z" fill="currentColor"/>
+  </svg>
+);
+
+const EllipseGreen = () => (
+  <svg width="20" height="20" viewBox="0 0 120 120" fill="none">
+    <circle cx="60" cy="60" r="60" fill="#4CAF50"/>
+  </svg>
+);
+
+const EllipseBlue = () => (
+  <svg width="20" height="20" viewBox="0 0 120 120" fill="none">
+    <circle cx="60" cy="60" r="60" fill="#2196F3"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="12" fill="#4CAF50"/>
+    <path d="M9 12L11 14L15 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const RotateIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="spinning">
+    <path d="M4 4V9H9M16 16V11H11M4 9C4 13.4183 7.58172 17 12 17C14.5 17 16.7 15.8 18 14M16 11C16 6.58172 12.4183 3 8 3C5.5 3 3.3 4.2 2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 function UploadContainer({ onUploadSuccess }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -150,7 +182,6 @@ function UploadContainer({ onUploadSuccess }) {
     <div className="upload-container">
       <div className="headset-container">
         <div className="headset-icon">
-          <img src={imgHeadsetMic} alt="" className="headset-mic" />
         </div>
       </div>
       <div className="upload-header">
@@ -166,33 +197,26 @@ function UploadContainer({ onUploadSuccess }) {
       >
         {selectedFiles.length === 0 ? (
           <>
-            <div className="upload-circle">
               <div className="cloud-icon">
-                <img src={imgCloudBase} alt="" className="cloud-base" />
-                <img src={imgCloudArrow} alt="" className="cloud-arrow" />
+                <CloudIcon className="cloud-base" />
               </div>
-            </div>
             <p className="upload-text">Drag and Drop or click to browse</p>
             <p className="file-types">Supported file types - .wav, .mp3</p>
             <button className="browse-btn" onClick={handleBrowseClick}>
-              <img src={imgUpgrade} alt="" className="upgrade-icon" />
+              <UpgradeIcon className="upgrade-icon" />
               <span>Browse Files</span>
             </button>
           </>
         ) : (
           <>
-            <div className="selected-circle">
-              <img src={isUploading ? imgEllipseBlue : imgEllipseGreen} alt="" className="circle-bg" />
+              {isUploading ? <EllipseBlue className="circle-bg" /> : <EllipseGreen className="circle-bg" />}
               <div className="cloud-icon-selected">
-                <img src={imgCloudBase} alt="" className="cloud-base" />
-                <img src={imgCloudArrow} alt="" className="cloud-arrow" />
+                <CloudIcon className="cloud-base" />
               </div>
-            </div>
             <div className="file-selected-header">
               <p className="file-selected-text">{selectedFiles.length === 1 ? 'File Selected' : `${selectedFiles.length} Files Selected`}</p>
               <div className="check-done-icon">
-                <img src={imgCheckBase} alt="" className="done-base" />
-                <img src={imgCheckMark} alt="" className="done-mark" />
+                <CheckIcon className="done-base" />
               </div>
             </div>
             <div className="file-details">
@@ -223,8 +247,7 @@ function UploadContainer({ onUploadSuccess }) {
       >
         {isUploading && (
           <div className="rotate-icon">
-            <img src={imgRotateBase} alt="" className="rotate-base" />
-            <img src={imgRotateArrow} alt="" className="rotate-arrow" />
+            <RotateIcon className="rotate-base" />
           </div>
         )}
         Upload Recording

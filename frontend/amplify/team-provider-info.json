@@ -1,0 +1,15 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-boystown-dev-b6b7b-authRole",
+      "UnauthRoleArn": "arn:aws:iam::327109783207:role/amplify-boystown-dev-b6b7b-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::327109783207:role/amplify-boystown-dev-b6b7b-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-boystown-dev-b6b7b-deployment",
+      "UnauthRoleName": "amplify-boystown-dev-b6b7b-unauthRole",
+      "StackName": "amplify-boystown-dev-b6b7b",
+      "StackId": "arn:aws:cloudformation:us-east-1:327109783207:stack/amplify-boystown-dev-b6b7b/a5f11f90-68a9-11f0-a969-0affc07687c7",
+      "AmplifyAppId": "dz8jltdps0c05"
+    }
+  }
+}

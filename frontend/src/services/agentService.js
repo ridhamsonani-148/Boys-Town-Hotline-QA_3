@@ -1,12 +1,21 @@
-const API_URL = process.env.REACT_APP_API_URL || 'https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/get-data';
+const API_URL = `${process.env.REACT_APP_API_URL}/get-data` || 'https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/get-data';
 
-// List of specializations to randomly assign
-const specializations = ['National Hotline Program', 'Nebraska Crisis Program'];
+// Local storage for agent programs
+const AGENT_PROGRAMS_KEY = 'agent_programs';
 
-// Helper function to get random specialization
-const getRandomSpecialization = () => {
-  const randomIndex = Math.floor(Math.random() * specializations.length);
-  return specializations[randomIndex];
+// Helper function to get stored programs for an agent
+const getStoredPrograms = (counselorId) => {
+  const stored = localStorage.getItem(AGENT_PROGRAMS_KEY);
+  const programs = stored ? JSON.parse(stored) : {};
+  return programs[counselorId] || [];
+};
+
+// Helper function to store programs for an agent
+const storePrograms = (counselorId, programs) => {
+  const stored = localStorage.getItem(AGENT_PROGRAMS_KEY);
+  const allPrograms = stored ? JSON.parse(stored) : {};
+  allPrograms[counselorId] = programs;
+  localStorage.setItem(AGENT_PROGRAMS_KEY, JSON.stringify(allPrograms));
 };
 
 // Process agent data from API response
@@ -23,7 +32,8 @@ const processAgentData = (data) => {
       counselorGroups[CounselorId] = {
         name: CounselorName,
         contactId: CounselorId,
-        specialization: getRandomSpecialization(),
+        programs: getStoredPrograms(CounselorId),
+        specialization: 'No programs assigned',
         totalCases: 0,
         evaluations: [],
         firstHalfScores: [],
@@ -106,7 +116,14 @@ const getAgentById = async (agentId) => {
   }
 };
 
+// Update agent programs
+const updateAgentPrograms = async (agentId, programs) => {
+  storePrograms(agentId, programs);
+  return programs;
+};
+
 export const agentService = {
   getAllAgents,
-  getAgentById
+  getAgentById,
+  updateAgentPrograms
 };

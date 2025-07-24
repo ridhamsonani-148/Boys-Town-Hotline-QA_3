@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import './PerformanceRubrics.css';
 
-// Import icons
-const imgWest = "http://localhost:3845/assets/dab477c6ade2d19b6d463e2d6994e32669d7440c.svg";
-const imgWestIcon = "http://localhost:3845/assets/9fc49a8ad4582ec588abb9db25500f5811dbc74c.svg";
-const imgHeadset = "http://localhost:3845/assets/a66be842bec527b13441dcf2743fcf4ff6738079.svg";
-const imgHeadsetIcon = "http://localhost:3845/assets/3bec8d72294e72fa71bb179a6527aeceab51f3b7.svg";
-const imgArrowDown = "http://localhost:3845/assets/dab477c6ade2d19b6d463e2d6994e32669d7440c.svg";
+// SVG Components
+const WestIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+    <path d="M7.5 2L3.5 6L7.5 10" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const HeadsetIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 60 60" fill="none">
+    <path d="M30 5C20.335 5 12.5 12.835 12.5 22.5V30H17.5V22.5C17.5 15.596 23.096 10 30 10C36.904 10 42.5 15.596 42.5 22.5V30H47.5V22.5C47.5 12.835 39.665 5 30 5ZM7.5 32.5C5.845 32.5 4.5 33.845 4.5 35.5V45C4.5 46.655 5.845 48 7.5 48H15V32.5H7.5ZM45 32.5V48H52.5C54.155 48 55.5 46.655 55.5 45V35.5C55.5 33.845 54.155 32.5 52.5 32.5H45Z" fill="#094677"/>
+  </svg>
+);
+
+const ArrowDownIcon = ({ className }) => (
+  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" className={className}>
+    <path d="M1 1L6 6L11 1" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 // Skill point definitions
 const skillPoints = {
@@ -114,16 +126,14 @@ function PerformanceRubrics({ fileName, s3Url, onBack }) {
       <div className="performance-rubrics-header">
         <div className="back-button" onClick={onBack}>
           <div className="back-icon-container">
-            <img src={imgWest} alt="" className="west-arrow" />
-            <img src={imgWestIcon} alt="" className="west-icon" />
+            <WestIcon className="west-icon" />
           </div>
         </div>
       </div>
 
       <div className="file-info-card">
         <div className="file-icon-container">
-          <img src={imgHeadset} alt="" className="headset-icon" />
-          <img src={imgHeadsetIcon} alt="" className="headset-icon-inner" />
+          <HeadsetIcon className="headset-icon" />
         </div>
         <div className="file-name">{fileName}</div>
         <div className="overall-score">{Math.round(rubricData.percentageScore)}%</div>
@@ -156,7 +166,7 @@ function PerformanceRubrics({ fileName, s3Url, onBack }) {
               <div key={categoryName} className="rubric-item">
                 <div className="rubric-header" onClick={() => toggleSection(categoryName)}>
                   <div className="rubric-left">
-                    <img src={imgArrowDown} alt="" className={`expand-arrow ${expandedSections[categoryName] ? 'expanded' : ''}`} />
+                    <ArrowDownIcon className={`expand-arrow ${expandedSections[categoryName] ? 'expanded' : ''}`} />
                     <h3 className="rubric-name">{categoryName}</h3>
                   </div>
                   <div className="rubric-score">{categoryData.multipliedScore} / {maxCategoryPoints}</div>
