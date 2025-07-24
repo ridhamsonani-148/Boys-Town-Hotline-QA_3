@@ -46,9 +46,7 @@ const skillPoints = {
     "POP Model - does not dwell": 1
   },
   "Technical Skills": {
-    "Greeting": 1,
-    "SSA (LRA) Documentation": 1,
-    "Call Documentation / SC Communication": 1
+    "Greeting": 1
   }
 };
 
