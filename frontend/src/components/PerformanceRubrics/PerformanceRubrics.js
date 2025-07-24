@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './PerformanceRubrics.css';
-
+import HeadsetIcon from "../../assets/headset_mic.png"
 // SVG Components
 const WestIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -8,11 +8,7 @@ const WestIcon = () => (
   </svg>
 );
 
-const HeadsetIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 60 60" fill="none">
-    <path d="M30 5C20.335 5 12.5 12.835 12.5 22.5V30H17.5V22.5C17.5 15.596 23.096 10 30 10C36.904 10 42.5 15.596 42.5 22.5V30H47.5V22.5C47.5 12.835 39.665 5 30 5ZM7.5 32.5C5.845 32.5 4.5 33.845 4.5 35.5V45C4.5 46.655 5.845 48 7.5 48H15V32.5H7.5ZM45 32.5V48H52.5C54.155 48 55.5 46.655 55.5 45V35.5C55.5 33.845 54.155 32.5 52.5 32.5H45Z" fill="#094677"/>
-  </svg>
-);
+
 
 const ArrowDownIcon = ({ className }) => (
   <svg width="12" height="8" viewBox="0 0 12 8" fill="none" className={className}>
