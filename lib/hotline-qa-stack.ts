@@ -9,6 +9,10 @@ import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as path from 'path';
+import * as amplify from '@aws-cdk/aws-amplify-alpha';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
+
 
 export interface HotlineQaStackProps extends cdk.StackProps {
   /**
