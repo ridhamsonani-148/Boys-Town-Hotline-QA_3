@@ -438,7 +438,10 @@ export class HotlineQaStack extends cdk.Stack {
         'states:ListExecutions',
         'states:DescribeExecution',
       ],
-      resources: [stateMachine.stateMachineArn],
+      resources: [
+        stateMachine.stateMachineArn,
+        `${stateMachine.stateMachineArn}:*`, // This allows access to all executions of this state machine
+      ],
     }));
 
     // Grant start workflow function permission to start executions
