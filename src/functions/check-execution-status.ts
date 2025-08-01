@@ -8,6 +8,8 @@ if (!STATE_MACHINE_ARN) {
   throw new Error('Required environment variable STATE_MACHINE_ARN must be set');
 }
 
+// Updated IAM permissions to fix access issues
+
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
   

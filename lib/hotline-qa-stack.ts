@@ -440,7 +440,8 @@ export class HotlineQaStack extends cdk.Stack {
       ],
       resources: [
         stateMachine.stateMachineArn,
-        `${stateMachine.stateMachineArn}:*`, // This allows access to all executions of this state machine
+        // Allow access to all executions of this state machine using explicit pattern
+        `arn:aws:states:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:execution:${stateMachine.stateMachineName}:*`,
       ],
     }));
 
