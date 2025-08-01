@@ -470,9 +470,16 @@ export class HotlineQaStack extends cdk.Stack {
     const analysisResource = api.root.addResource('analysis');
     analysisResource.addResource('{fileId}').addMethod('GET', getAnalysisResultsIntegration);
     
-    // Add profiles route
+    // Add profiles route with proper path parameter support
     const profilesResource = api.root.addResource('profiles');
-    profilesResource.addMethod('ANY', manageCounselorProfilesIntegration);
+    profilesResource.addMethod('GET', manageCounselorProfilesIntegration); // GET /profiles - get all
+    profilesResource.addMethod('POST', manageCounselorProfilesIntegration); // POST /profiles - create new
+    
+    // Add specific counselor profile route with path parameter
+    const specificProfileResource = profilesResource.addResource('{counselorId}');
+    specificProfileResource.addMethod('GET', manageCounselorProfilesIntegration); // GET /profiles/{counselorId}
+    specificProfileResource.addMethod('PUT', manageCounselorProfilesIntegration); // PUT /profiles/{counselorId}
+    specificProfileResource.addMethod('DELETE', manageCounselorProfilesIntegration); // DELETE /profiles/{counselorId}
 
     // Store API URL for frontend stack
     this.apiUrl = api.url;

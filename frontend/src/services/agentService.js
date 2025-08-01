@@ -1,13 +1,30 @@
 const API_URL = `${process.env.REACT_APP_API_URL}/get-data` || 'https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/get-data';
+const PROFILES_API_URL = `${process.env.REACT_APP_API_URL}/profiles` || 'https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/profiles';
 
 // Local storage for agent programs
 const AGENT_PROGRAMS_KEY = 'agent_programs';
 
-// Helper function to get stored programs for an agent
+// Helper function to get stored programs for an agent (localStorage)
 const getStoredPrograms = (counselorId) => {
   const stored = localStorage.getItem(AGENT_PROGRAMS_KEY);
   const programs = stored ? JSON.parse(stored) : {};
   return programs[counselorId] || [];
+};
+
+// Get counselor programs from API (with localStorage fallback)
+const getCounselorPrograms = async (counselorId) => {
+  try {
+    const response = await fetch(`${PROFILES_API_URL}/${counselorId}`);
+    if (response.ok) {
+      const profile = await response.json();
+      return profile.ProgramType || [];
+    }
+  } catch (error) {
+    console.log('Failed to fetch programs from API, using localStorage:', error);
+  }
+  
+  // Fallback to localStorage
+  return getStoredPrograms(counselorId);
 };
 
 // Helper function to store programs for an agent
@@ -19,7 +36,7 @@ const storePrograms = (counselorId, programs) => {
 };
 
 // Process agent data from API response
-const processAgentData = (data) => {
+const processAgentData = async (data) => {
   // Group by counselorId
   const counselorGroups = {};
   
@@ -32,7 +49,7 @@ const processAgentData = (data) => {
       counselorGroups[CounselorId] = {
         name: CounselorName,
         contactId: CounselorId,
-        programs: getStoredPrograms(CounselorId),
+        programs: [], // Will be populated from API
         specialization: 'No programs assigned',
         totalCases: 0,
         evaluations: [],
@@ -58,31 +75,38 @@ const processAgentData = (data) => {
     });
   });
   
-  // Calculate half-year averages
-  Object.values(counselorGroups).forEach(agent => {
-    // Calculate first half average
-    if (agent.firstHalfScores.length > 0) {
-      const sum = agent.firstHalfScores.reduce((acc, score) => acc + score, 0);
-      agent.firstHalfAvg = Math.round(sum / agent.firstHalfScores.length);
-    } else {
-      agent.firstHalfAvg = 'N/A';
-    }
-    
-    // Calculate second half average
-    if (agent.secondHalfScores.length > 0) {
-      const sum = agent.secondHalfScores.reduce((acc, score) => acc + score, 0);
-      agent.secondHalfAvg = Math.round(sum / agent.secondHalfScores.length);
-    } else {
-      agent.secondHalfAvg = 'N/A';
-    }
-    
-    // Clean up temporary arrays
-    delete agent.firstHalfScores;
-    delete agent.secondHalfScores;
-  });
+  // Calculate half-year averages and load programs from API
+  const counselorArray = await Promise.all(
+    Object.values(counselorGroups).map(async (agent) => {
+      // Calculate first half average
+      if (agent.firstHalfScores.length > 0) {
+        const sum = agent.firstHalfScores.reduce((acc, score) => acc + score, 0);
+        agent.firstHalfAvg = Math.round(sum / agent.firstHalfScores.length);
+      } else {
+        agent.firstHalfAvg = 'N/A';
+      }
+      
+      // Calculate second half average
+      if (agent.secondHalfScores.length > 0) {
+        const sum = agent.secondHalfScores.reduce((acc, score) => acc + score, 0);
+        agent.secondHalfAvg = Math.round(sum / agent.secondHalfScores.length);
+      } else {
+        agent.secondHalfAvg = 'N/A';
+      }
+      
+      // Load programs from API
+      agent.programs = await getCounselorPrograms(agent.contactId);
+      agent.specialization = agent.programs.length > 0 ? agent.programs.join(', ') : 'No programs assigned';
+      
+      // Clean up temporary arrays
+      delete agent.firstHalfScores;
+      delete agent.secondHalfScores;
+      
+      return agent;
+    })
+  );
   
-  // Convert to array
-  return Object.values(counselorGroups);
+  return counselorArray;
 };
 
 // Fetch all agents data
@@ -95,7 +119,7 @@ const getAllAgents = async () => {
     const data = await response.json();
     //console.log('API Response:', data);
     
-    const processedData = processAgentData(data);
+    const processedData = await processAgentData(data);
     //console.log('Processed Agent Data:', processedData);
     
     return processedData;
@@ -118,8 +142,58 @@ const getAgentById = async (agentId) => {
 
 // Update agent programs
 const updateAgentPrograms = async (agentId, programs) => {
-  storePrograms(agentId, programs);
-  return programs;
+  try {
+    // First, try to get the existing counselor profile
+    let counselorProfile;
+    try {
+      const getResponse = await fetch(`${PROFILES_API_URL}/${agentId}`);
+      if (getResponse.ok) {
+        counselorProfile = await getResponse.json();
+      }
+    } catch (getError) {
+      console.log('Counselor profile not found, will create new one');
+    }
+
+    // Prepare the profile data
+    const profileData = {
+      CounselorId: agentId,
+      CounselorName: counselorProfile?.CounselorName || `Counselor ${agentId}`,
+      ProgramType: programs,
+      IsActive: true,
+      LastUpdated: new Date().toISOString(),
+      UpdatedBy: 'Frontend User'
+    };
+
+    // If profile exists, update it; otherwise create it
+    const method = counselorProfile ? 'PUT' : 'POST';
+    const url = counselorProfile ? `${PROFILES_API_URL}/${agentId}` : PROFILES_API_URL;
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profileData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update counselor programs: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Successfully updated counselor programs:', result);
+
+    // Also store in localStorage as backup
+    storePrograms(agentId, programs);
+    
+    return programs;
+  } catch (error) {
+    console.error('Error updating agent programs:', error);
+    
+    // Fallback to localStorage if API fails
+    storePrograms(agentId, programs);
+    return programs;
+  }
 };
 
 export const agentService = {
