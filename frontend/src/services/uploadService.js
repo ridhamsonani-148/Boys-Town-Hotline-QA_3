@@ -46,6 +46,10 @@ export const uploadService = {
             onProgress?.(70);
             onStatusChange?.('processing', null);
             
+            // Notify the analysis container that processing has started
+            console.log('Upload completed, notifying processing status');
+            this.statusChangeCallback?.('processing', null);
+            
             // Start polling for execution status
             this.pollExecutionStatus(file.name, onProgress, onStatusChange);
             
@@ -89,6 +93,7 @@ export const uploadService = {
               // Get the final results
               try {
                 const results = await this.getResults(fileName);
+                console.log('Processing completed, notifying completion status');
                 onStatusChange?.('completed', results);
                 this.statusChangeCallback?.('completed', results);
               } catch (error) {
@@ -97,6 +102,7 @@ export const uploadService = {
                 this.statusChangeCallback?.('completed', null);
               }
             } else {
+              console.log('Processing failed, notifying failure status');
               onStatusChange?.('failed', { error: status.error || 'Processing failed' });
               this.statusChangeCallback?.('failed', { error: status.error || 'Processing failed' });
             }
