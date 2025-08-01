@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './PerformanceRubrics.css';
-import HeadsetIcon from "../../assets/headset_mic.png"
+import HeadsetIcon from "../../assets/headset_mic.png";
 // SVG Components
 const WestIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -127,7 +127,7 @@ function PerformanceRubrics({ fileName, s3Url, onBack }) {
 
       <div className="file-info-card">
         <div className="file-icon-container">
-          <HeadsetIcon className="headset-icon" />
+          <img src={HeadsetIcon} alt="Headset" className="headset-icon" />
         </div>
         <div className="file-name">{fileName}</div>
         <div className="overall-score">{Math.round(rubricData.percentageScore)}%</div>
