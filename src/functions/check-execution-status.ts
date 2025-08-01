@@ -95,7 +95,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const execution = await sfnClient.send(describeCommand);
 
     const response = {
-      executionArn: targetExecutionArn,
       status: execution.status, // RUNNING, SUCCEEDED, FAILED, TIMED_OUT, ABORTED
       startDate: execution.startDate?.toISOString(),
       stopDate: execution.stopDate?.toISOString(),
