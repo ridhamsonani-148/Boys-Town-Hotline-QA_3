@@ -8,10 +8,10 @@ import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as path from 'path';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as amplify from '@aws-cdk/aws-amplify-alpha';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
+import * as codebuild from 'aws-cdk-lib/aws-codebuild';
+import * as path from 'path';
 
 
 export interface HotlineQaStackProps extends cdk.StackProps {
@@ -26,6 +26,30 @@ export interface HotlineQaStackProps extends cdk.StackProps {
    * @default 'boys-town-hotline-qa'
    */
   bucketNamePrefix?: string;
+  
+  /**
+   * Whether to deploy the Amplify frontend app
+   * @default true
+   */
+  deployFrontend?: boolean;
+  
+  /**
+   * GitHub repository owner for Amplify deployment
+   * @default 'ASUCICREPO'
+   */
+  githubOwner?: string;
+  
+  /**
+   * GitHub repository name for Amplify deployment
+   * @default 'Boys-Town-Hotline-QA'
+   */
+  githubRepo?: string;
+  
+  /**
+   * AWS Secrets Manager secret name containing GitHub personal access token
+   * @default 'github-token'
+   */
+  githubTokenSecretName?: string;
 }
 
 export class HotlineQaStack extends cdk.Stack {
@@ -43,6 +67,16 @@ export class HotlineQaStack extends cdk.Stack {
    * The DynamoDB table that will store counselor metadata/profiles
    */
   public readonly counselorProfilesTable: dynamodb.Table;
+  
+  /**
+   * The API Gateway URL for frontend integration
+   */
+  public readonly apiUrl: string;
+  
+  /**
+   * The Amplify app for frontend hosting (optional)
+   */
+  public readonly amplifyApp?: amplify.App;
   
   constructor(scope: Construct, id: string, props: HotlineQaStackProps) {
     super(scope, id, props);
@@ -230,6 +264,54 @@ export class HotlineQaStack extends cdk.Stack {
       description: 'Manages counselor profiles via API (GET, PUT, POST operations)',
     });
 
+    // Create Lambda function for generating presigned URLs
+    const generatePresignedUrlFunction = new lambdaNodejs.NodejsFunction(this, 'GeneratePresignedUrlFunction', {
+      entry: path.join(__dirname, '../src/functions/generate-presigned-url.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        BUCKET_NAME: this.storageBucket.bucketName,
+      },
+      description: 'Generates presigned URLs for S3 file uploads',
+    });
+
+    // Create Lambda function for getting analysis results
+    const getResultsFunction = new lambdaNodejs.NodejsFunction(this, 'GetResultsFunction', {
+      entry: path.join(__dirname, '../src/functions/get-results.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        BUCKET_NAME: this.storageBucket.bucketName,
+      },
+      description: 'Gets analysis results from S3',
+    });
+
+    // Create Lambda function for getting counselor data
+    const getCounselorDataFunction = new lambdaNodejs.NodejsFunction(this, 'GetCounselorDataFunction', {
+      entry: path.join(__dirname, '../src/functions/get-counselor-data.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        EVALUATIONS_TABLE: this.counselorEvaluationsTable.tableName,
+      },
+      description: 'Gets all counselor evaluation data from DynamoDB',
+    });
+
+    // Create Lambda function for getting specific analysis results
+    const getAnalysisResultsFunction = new lambdaNodejs.NodejsFunction(this, 'GetAnalysisResultsFunction', {
+      entry: path.join(__dirname, '../src/functions/get-analysis-results.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        BUCKET_NAME: this.storageBucket.bucketName,
+      },
+      description: 'Gets specific analysis results by file ID',
+    });
+
     // Grant Lambda permissions to use Transcribe and PassRole
     transcribeFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: [
@@ -269,12 +351,16 @@ export class HotlineQaStack extends cdk.Stack {
     this.storageBucket.grantReadWrite(analyzeLLMFunction);
     this.storageBucket.grantReadWrite(aggregateScoresFunction);
     this.storageBucket.grantRead(updateCounselorRecordsFunction);
+    this.storageBucket.grantReadWrite(generatePresignedUrlFunction);
+    this.storageBucket.grantRead(getResultsFunction);
+    this.storageBucket.grantRead(getAnalysisResultsFunction);
     
     // Grant Lambda access to DynamoDB
     this.counselorEvaluationsTable.grantWriteData(updateCounselorRecordsFunction);
     this.counselorProfilesTable.grantReadWriteData(updateCounselorRecordsFunction);
     this.counselorProfilesTable.grantReadWriteData(manageCounselorProfilesFunction);
     this.counselorEvaluationsTable.grantReadData(manageCounselorProfilesFunction);
+    this.counselorEvaluationsTable.grantReadData(getCounselorDataFunction);
     
     // Create Step Functions tasks
     const startTranscribeTask = new tasks.LambdaInvoke(this, 'StartTranscribeJob', {
@@ -350,6 +436,101 @@ export class HotlineQaStack extends cdk.Stack {
       new s3n.LambdaDestination(startWorkflowFunction),
       { prefix: 'records/', suffix: '.wav' }
     );
+
+    // === CREATE API GATEWAY FOR FRONTEND ===
+    const api = new apigateway.RestApi(this, 'HotlineQaApi', {
+      restApiName: 'Boys Town Hotline QA API',
+      description: 'API for Boys Town Hotline QA frontend application',
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: [
+          'Content-Type',
+          'X-Amz-Date',
+          'Authorization',
+          'X-Api-Key',
+          'X-Amz-Security-Token'
+        ],
+      },
+    });
+
+    // Create API integrations
+    const generateUrlIntegration = new apigateway.LambdaIntegration(generatePresignedUrlFunction);
+    const getResultsIntegration = new apigateway.LambdaIntegration(getResultsFunction);
+    const getCounselorDataIntegration = new apigateway.LambdaIntegration(getCounselorDataFunction);
+    const getAnalysisResultsIntegration = new apigateway.LambdaIntegration(getAnalysisResultsFunction);
+    const manageCounselorProfilesIntegration = new apigateway.LambdaIntegration(manageCounselorProfilesFunction);
+
+    // Add API routes
+    api.root.addResource('generate-url').addMethod('POST', generateUrlIntegration);
+    api.root.addResource('get-results').addMethod('GET', getResultsIntegration);
+    api.root.addResource('get-data').addMethod('GET', getCounselorDataIntegration);
+    
+    // Add analysis route with path parameter
+    const analysisResource = api.root.addResource('analysis');
+    analysisResource.addResource('{fileId}').addMethod('GET', getAnalysisResultsIntegration);
+    
+    // Add profiles route
+    const profilesResource = api.root.addResource('profiles');
+    profilesResource.addMethod('ANY', manageCounselorProfilesIntegration);
+
+    // Store API URL for frontend stack
+    this.apiUrl = api.url;
+    
+    // === CREATE AMPLIFY APP FOR FRONTEND (OPTIONAL) ===
+    const deployFrontend = props.deployFrontend !== false; // Deploy by default
+    
+    if (deployFrontend) {
+      const githubOwner = props.githubOwner || 'ASUCICREPO';
+      const githubRepo = props.githubRepo || 'Boys-Town-Hotline-QA';
+      const githubTokenSecretName = props.githubTokenSecretName || 'github-token';
+      
+      this.amplifyApp = new amplify.App(this, 'HotlineFrontendApp', {
+        sourceCodeProvider: new amplify.GitHubSourceCodeProvider({
+          owner: githubOwner,
+          repository: githubRepo,
+          oauthToken: cdk.SecretValue.secretsManager(githubTokenSecretName),
+        }),
+        environmentVariables: {
+          REACT_APP_API_BASE_URL: this.apiUrl,
+          REACT_APP_API_URL: this.apiUrl,
+          REACT_APP_AWS_REGION: cdk.Stack.of(this).region,
+          REACT_APP_BUCKET_NAME: this.storageBucket.bucketName,
+        },
+        buildSpec: codebuild.BuildSpec.fromObjectToYaml({
+          version: '1.0',
+          frontend: {
+            phases: {
+              preBuild: {
+                commands: [
+                  'cd frontend',
+                  'npm ci'
+                ],
+              },
+              build: {
+                commands: [
+                  'npm run build'
+                ],
+              },
+            },
+            artifacts: {
+              baseDirectory: 'frontend/build',
+              files: ['**/*'],
+            },
+            cache: {
+              paths: ['frontend/node_modules/**/*'],
+            },
+          },
+        }),
+        description: `Boys Town Hotline QA Frontend - ${envName}`,
+      });
+
+      // Add main branch for deployment
+      this.amplifyApp.addBranch('main', {
+        branchName: 'main',
+        stage: 'PRODUCTION',
+      });
+    }
     
     // Output the bucket name for reference
     new cdk.CfnOutput(this, 'BucketName', {
@@ -424,6 +605,26 @@ export class HotlineQaStack extends cdk.Stack {
       description: 'Name of the Lambda function that manages counselor profiles via API',
     });
     
+    new cdk.CfnOutput(this, 'GeneratePresignedUrlFunctionName', {
+      value: generatePresignedUrlFunction.functionName,
+      description: 'Name of the Lambda function that generates presigned URLs',
+    });
+    
+    new cdk.CfnOutput(this, 'GetResultsFunctionName', {
+      value: getResultsFunction.functionName,
+      description: 'Name of the Lambda function that gets analysis results',
+    });
+    
+    new cdk.CfnOutput(this, 'GetCounselorDataFunctionName', {
+      value: getCounselorDataFunction.functionName,
+      description: 'Name of the Lambda function that gets counselor data',
+    });
+    
+    new cdk.CfnOutput(this, 'GetAnalysisResultsFunctionName', {
+      value: getAnalysisResultsFunction.functionName,
+      description: 'Name of the Lambda function that gets specific analysis results',
+    });
+    
     // Output the DynamoDB table names
     new cdk.CfnOutput(this, 'CounselorEvaluationsTableName', {
       value: this.counselorEvaluationsTable.tableName,
@@ -440,5 +641,29 @@ export class HotlineQaStack extends cdk.Stack {
       value: stateMachine.stateMachineArn,
       description: 'ARN of the Step Functions state machine',
     });
+    
+    // Output the API Gateway URL for frontend integration
+    new cdk.CfnOutput(this, 'ApiGatewayUrl', {
+      value: this.apiUrl,
+      description: 'API Gateway URL - Frontend should use this as base URL for all API calls',
+    });
+    
+    // Output Amplify app information if deployed
+    if (this.amplifyApp) {
+      new cdk.CfnOutput(this, 'AmplifyAppUrl', {
+        value: `https://main.${this.amplifyApp.appId}.amplifyapp.com`,
+        description: 'Amplify app URL - Access your deployed frontend application here',
+      });
+      
+      new cdk.CfnOutput(this, 'AmplifyAppId', {
+        value: this.amplifyApp.appId,
+        description: 'Amplify app ID for management and configuration',
+      });
+      
+      new cdk.CfnOutput(this, 'AmplifyConsoleUrl', {
+        value: `https://console.aws.amazon.com/amplify/home?region=${cdk.Stack.of(this).region}#/${this.amplifyApp.appId}`,
+        description: 'AWS Amplify Console URL for managing deployments and settings',
+      });
+    }
   }
 }
