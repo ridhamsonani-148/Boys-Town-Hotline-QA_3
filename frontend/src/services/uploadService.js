@@ -36,27 +36,18 @@ export const uploadService = {
         
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            const progress = Math.round(30 + (e.loaded / e.total) * 70);
+            const progress = Math.round(30 + (e.loaded / e.total) * 40); // Upload takes 30-70%
             onProgress?.(progress);
           }
         });
         
         xhr.addEventListener('load', async () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            onProgress?.(100);
+            onProgress?.(70);
+            onStatusChange?.('processing', null);
             
-            // Wait 5 minutes then get results
-            setTimeout(async () => {
-              try {
-                const results = await this.getResults(file.name);
-                onStatusChange?.('completed', results);
-                this.statusChangeCallback?.('completed', results);
-              } catch (error) {
-                console.error('Error getting results after upload:', error);
-                onStatusChange?.('failed', null);
-                this.statusChangeCallback?.('failed', null);
-              }
-            }, 240000);
+            // Start polling for execution status
+            this.pollExecutionStatus(file.name, onProgress, onStatusChange);
             
             resolve({ success: true, fileName: file.name, fileSize: file.size });
           } else {
@@ -75,6 +66,85 @@ export const uploadService = {
       console.error('Upload error:', error.message);
       throw error;
     }
+  },
+
+  // Poll execution status until completion
+  async pollExecutionStatus(fileName, onProgress, onStatusChange) {
+    const maxAttempts = 60; // 5 minutes max (5 second intervals)
+    let attempts = 0;
+    
+    const poll = async () => {
+      try {
+        attempts++;
+        
+        const response = await fetch(`${API_BASE_URL}execution-status?fileName=${encodeURIComponent(fileName)}`);
+        
+        if (response.ok) {
+          const status = await response.json();
+          console.log('Execution status:', status);
+          
+          if (status.isComplete) {
+            if (status.isSuccessful) {
+              onProgress?.(100);
+              // Get the final results
+              try {
+                const results = await this.getResults(fileName);
+                onStatusChange?.('completed', results);
+                this.statusChangeCallback?.('completed', results);
+              } catch (error) {
+                console.error('Error getting results after completion:', error);
+                onStatusChange?.('completed', null);
+                this.statusChangeCallback?.('completed', null);
+              }
+            } else {
+              onStatusChange?.('failed', { error: status.error || 'Processing failed' });
+              this.statusChangeCallback?.('failed', { error: status.error || 'Processing failed' });
+            }
+            return; // Stop polling
+          }
+          
+          // Still processing - update progress
+          const progressPercent = Math.min(95, 70 + (attempts * 2)); // Gradually increase from 70% to 95%
+          onProgress?.(progressPercent);
+          
+        } else if (response.status === 404) {
+          // Execution not found yet, keep polling
+          console.log('Execution not found yet, continuing to poll...');
+        } else {
+          throw new Error(`Status check failed with status: ${response.status}`);
+        }
+        
+        // Continue polling if not complete and within max attempts
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000); // Poll every 5 seconds
+        } else {
+          // Timeout - but still try to get results
+          console.warn('Polling timeout reached, attempting to get results anyway');
+          try {
+            const results = await this.getResults(fileName);
+            onStatusChange?.('completed', results);
+            this.statusChangeCallback?.('completed', results);
+          } catch (error) {
+            onStatusChange?.('timeout', null);
+            this.statusChangeCallback?.('timeout', null);
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error polling execution status:', error);
+        
+        // On error, fall back to trying to get results
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000); // Continue polling despite error
+        } else {
+          onStatusChange?.('error', { error: error.message });
+          this.statusChangeCallback?.('error', { error: error.message });
+        }
+      }
+    };
+    
+    // Start polling after a short delay to allow execution to start
+    setTimeout(poll, 3000);
   },
 
   // Get results from API

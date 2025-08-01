@@ -312,6 +312,18 @@ export class HotlineQaStack extends cdk.Stack {
       description: 'Gets specific analysis results by file ID',
     });
 
+    // Create Lambda function for checking Step Functions execution status
+    const checkExecutionStatusFunction = new lambdaNodejs.NodejsFunction(this, 'CheckExecutionStatusFunction', {
+      entry: path.join(__dirname, '../src/functions/check-execution-status.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        STATE_MACHINE_ARN: '', // Will be set after state machine is created
+      },
+      description: 'Checks Step Functions execution status for uploaded files',
+    });
+
     // Grant Lambda permissions to use Transcribe and PassRole
     transcribeFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: [
@@ -417,6 +429,18 @@ export class HotlineQaStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(30),
     });
 
+    // Update the check execution status function with the state machine ARN
+    checkExecutionStatusFunction.addEnvironment('STATE_MACHINE_ARN', stateMachine.stateMachineArn);
+
+    // Grant the check execution status function permission to describe executions
+    checkExecutionStatusFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'states:ListExecutions',
+        'states:DescribeExecution',
+      ],
+      resources: [stateMachine.stateMachineArn],
+    }));
+
     // Grant start workflow function permission to start executions
     startWorkflowFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['states:StartExecution'],
@@ -460,11 +484,13 @@ export class HotlineQaStack extends cdk.Stack {
     const getCounselorDataIntegration = new apigateway.LambdaIntegration(getCounselorDataFunction);
     const getAnalysisResultsIntegration = new apigateway.LambdaIntegration(getAnalysisResultsFunction);
     const manageCounselorProfilesIntegration = new apigateway.LambdaIntegration(manageCounselorProfilesFunction);
+    const checkExecutionStatusIntegration = new apigateway.LambdaIntegration(checkExecutionStatusFunction);
 
     // Add API routes
     api.root.addResource('generate-url').addMethod('POST', generateUrlIntegration);
     api.root.addResource('get-results').addMethod('GET', getResultsIntegration);
     api.root.addResource('get-data').addMethod('GET', getCounselorDataIntegration);
+    api.root.addResource('execution-status').addMethod('GET', checkExecutionStatusIntegration);
     
     // Add analysis route with path parameter
     const analysisResource = api.root.addResource('analysis');
@@ -630,6 +656,11 @@ export class HotlineQaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'GetAnalysisResultsFunctionName', {
       value: getAnalysisResultsFunction.functionName,
       description: 'Name of the Lambda function that gets specific analysis results',
+    });
+    
+    new cdk.CfnOutput(this, 'CheckExecutionStatusFunctionName', {
+      value: checkExecutionStatusFunction.functionName,
+      description: 'Name of the Lambda function that checks Step Functions execution status',
     });
     
     // Output the DynamoDB table names
