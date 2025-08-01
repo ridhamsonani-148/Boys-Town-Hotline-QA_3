@@ -17,6 +17,10 @@ const getCounselorPrograms = async (counselorId) => {
     const response = await fetch(`${PROFILES_API_URL}/${counselorId}`);
     if (response.ok) {
       const profile = await response.json();
+      // Convert comma-separated string back to array
+      if (profile.ProgramType && typeof profile.ProgramType === 'string') {
+        return profile.ProgramType.split(', ').filter(p => p.trim() !== '');
+      }
       return profile.ProgramType || [];
     }
   } catch (error) {
@@ -154,14 +158,15 @@ const updateAgentPrograms = async (agentId, programs) => {
       console.log('Counselor profile not found, will create new one');
     }
 
-    // Prepare the profile data
+    // Prepare the profile data (using camelCase as expected by Lambda)
+    // Convert programs array to comma-separated string for DynamoDB
     const profileData = {
-      CounselorId: agentId,
-      CounselorName: counselorProfile?.CounselorName || `Counselor ${agentId}`,
-      ProgramType: programs,
-      IsActive: true,
-      LastUpdated: new Date().toISOString(),
-      UpdatedBy: 'Frontend User'
+      counselorId: agentId,
+      counselorName: counselorProfile?.CounselorName || `Counselor ${agentId}`,
+      programType: programs.join(', '), // Convert array to string
+      isActive: true,
+      lastUpdated: new Date().toISOString(),
+      updatedBy: 'Frontend User'
     };
 
     // If profile exists, update it; otherwise create it
