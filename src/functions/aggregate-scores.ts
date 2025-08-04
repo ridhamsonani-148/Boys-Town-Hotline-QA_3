@@ -399,6 +399,14 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
     for (const [key, value] of Object.entries(llmOutput)) {
       const normalizedKey = fieldMappings[key] || key;
       normalizedOutput[normalizedKey] = value;
+      
+      // Add debug logging for field mapping
+      if (key !== normalizedKey) {
+        console.log(`Field mapping applied: "${key}" -> "${normalizedKey}"`);
+      }
+      if (key.includes('Termination')) {
+        console.log(`Termination field found: "${key}" -> "${normalizedKey}"`);
+      }
     }
     
     // Aggregate scores by category
