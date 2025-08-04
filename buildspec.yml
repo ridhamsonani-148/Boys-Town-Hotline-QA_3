@@ -1,0 +1,89 @@
+version: 0.2
+
+# AWS CodeBuild specification for Boys Town Hotline QA deployment
+# This buildspec automates the same process as the local deploy.sh script
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing dependencies..."
+      - npm install -g aws-cdk@2.87.0
+      - npm install
+      
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+      - echo "Checking AWS CLI configuration..."
+      - aws sts get-caller-identity
+      - echo "Current directory contents:"
+      - ls -la
+      - echo "Environment variables:"
+      - echo "ENV_NAME=${ENV_NAME:-dev}"
+      - echo "BUCKET_PREFIX=${BUCKET_PREFIX:-boys-town-hotline-qa}"
+      - echo "DEPLOY_FRONTEND=${DEPLOY_FRONTEND:-true}"
+      - echo "GITHUB_OWNER=${GITHUB_OWNER:-ASUCICREPO}"
+      - echo "GITHUB_REPO=${GITHUB_REPO:-Boys-Town-Hotline-QA}"
+      - echo "GITHUB_TOKEN_SECRET=${GITHUB_TOKEN_SECRET:-github-token}"
+      
+  build:
+    commands:
+      - echo "Build phase started on `date`"
+      - echo "Building TypeScript project..."
+      - npm run build
+      
+      - echo "Checking CDK bootstrap status..."
+      - ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+      - REGION=$(aws configure get region || echo "us-east-1")
+      - echo "Account: $ACCOUNT, Region: $REGION"
+      
+      # Bootstrap CDK if needed
+      - |
+        if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region $REGION > /dev/null 2>&1; then
+          echo "Bootstrapping CDK..."
+          cdk bootstrap aws://$ACCOUNT/$REGION
+        else
+          echo "CDK already bootstrapped"
+        fi
+      
+      # Check GitHub token secret if deploying frontend
+      - |
+        if [ "${DEPLOY_FRONTEND:-true}" = "true" ]; then
+          echo "Checking GitHub token secret..."
+          if ! aws secretsmanager describe-secret --secret-id "${GITHUB_TOKEN_SECRET:-github-token}" > /dev/null 2>&1; then
+            echo "ERROR: GitHub token secret '${GITHUB_TOKEN_SECRET:-github-token}' not found"
+            echo "Please create the secret before running this build"
+            exit 1
+          fi
+          echo "GitHub token secret found"
+        fi
+      
+      - echo "Deploying CDK stack..."
+      - |
+        cdk deploy HotlineQaStack-${ENV_NAME:-dev} \
+          --context envName=${ENV_NAME:-dev} \
+          --context bucketNamePrefix=${BUCKET_PREFIX:-boys-town-hotline-qa} \
+          --context deployFrontend=${DEPLOY_FRONTEND:-true} \
+          --context githubOwner=${GITHUB_OWNER:-ASUCICREPO} \
+          --context githubRepo=${GITHUB_REPO:-Boys-Town-Hotline-QA} \
+          --context githubTokenSecretName=${GITHUB_TOKEN_SECRET:-github-token} \
+          --require-approval never
+          
+  post_build:
+    commands:
+      - echo "Post-build phase started on `date`"
+      - echo "Deployment completed successfully!"
+      - echo "Listing CloudFormation outputs..."
+      - aws cloudformation describe-stacks --stack-name HotlineQaStack-${ENV_NAME:-dev} --query 'Stacks[0].Outputs' --output table || true
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: 'cdk.out'
+  name: boys-town-hotline-qa-artifacts
+
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - 'frontend/node_modules/**/*'

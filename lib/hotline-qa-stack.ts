@@ -34,20 +34,17 @@ export interface HotlineQaStackProps extends cdk.StackProps {
   deployFrontend?: boolean;
   
   /**
-   * GitHub repository owner for Amplify deployment
-   * @default 'ASUCICREPO'
+   * GitHub repository owner for Amplify deployment - REQUIRED if deployFrontend is true
    */
   githubOwner?: string;
   
   /**
-   * GitHub repository name for Amplify deployment
-   * @default 'Boys-Town-Hotline-QA'
+   * GitHub repository name for Amplify deployment - REQUIRED if deployFrontend is true
    */
   githubRepo?: string;
   
   /**
-   * AWS Secrets Manager secret name containing GitHub personal access token
-   * @default 'github-token'
+   * AWS Secrets Manager secret name containing GitHub personal access token - REQUIRED if deployFrontend is true
    */
   githubTokenSecretName?: string;
 }
@@ -518,9 +515,14 @@ export class HotlineQaStack extends cdk.Stack {
     const deployFrontend = props.deployFrontend !== false; // Deploy by default
     
     if (deployFrontend) {
-      const githubOwner = props.githubOwner || 'ASUCICREPO';
-      const githubRepo = props.githubRepo || 'Boys-Town-Hotline-QA';
-      const githubTokenSecretName = props.githubTokenSecretName || 'github-token';
+      const githubOwner = props.githubOwner;
+      const githubRepo = props.githubRepo;
+      const githubTokenSecretName = props.githubTokenSecretName;
+      
+      // Validate required GitHub parameters for frontend deployment
+      if (!githubOwner || !githubRepo || !githubTokenSecretName) {
+        throw new Error('GitHub parameters (githubOwner, githubRepo, githubTokenSecretName) are required when deployFrontend is true');
+      }
       
       this.amplifyApp = new amplify.App(this, 'HotlineFrontendApp', {
         sourceCodeProvider: new amplify.GitHubSourceCodeProvider({

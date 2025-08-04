@@ -10,7 +10,9 @@
     "test": "jest",
     "cdk": "cdk",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean"
+    "prebuild": "npm run clean",
+    "deploy-local": "./deploy.sh",
+    "deploy-codebuild": "./deploy-production-codebuild.sh"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
