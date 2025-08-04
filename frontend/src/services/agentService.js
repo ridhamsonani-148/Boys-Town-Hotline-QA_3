@@ -45,7 +45,7 @@ const processAgentData = async (data) => {
   const counselorGroups = {};
   
   data.forEach(entry => {
-    const { CounselorId, CounselorName, PercentageScore, EvaluationDate } = entry;
+    const { CounselorId, CounselorName, PercentageScore, TotalScore, EvaluationDate } = entry;
     const evalDate = new Date(EvaluationDate);
     const isFirstHalf = evalDate.getMonth() < 6; // First half: Jan-Jun, Second half: Jul-Dec
     
@@ -74,7 +74,7 @@ const processAgentData = async (data) => {
     counselorGroups[CounselorId].evaluations.push({
       fileName: entry.AudioFileName,
       date: new Date(EvaluationDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      score: `${Math.round(PercentageScore)} / 92`,
+      score: `${Math.round(TotalScore || 0)} / 92`, // Use TotalScore instead of PercentageScore
       categoryScores: entry.CategoryScores
     });
   });
