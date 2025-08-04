@@ -34,7 +34,7 @@ const skillPoints = {
     "Suicide Safety Assessment-SSA Initiation and Completion": 4,
     "Exploration of Buffers": 1,
     "Restates then Collaborates Options": 1,
-    "Identifies a Concrete Plan": 2,
+    "Identifies a Concrete Plan of Safety and Well-being": 2,
     "Appropriate Termination": 1
   },
   "Organizational Skills": {

@@ -61,6 +61,17 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
     return '-';
   };
 
+  // Helper function to match file names (handles variations like with/without extension)
+  const isFileNameMatch = (fileName1, fileName2) => {
+    if (!fileName1 || !fileName2) return false;
+    
+    // Remove extensions for comparison
+    const name1 = fileName1.replace(/\.(wav|mp3|m4a)$/i, '');
+    const name2 = fileName2.replace(/\.(wav|mp3|m4a)$/i, '');
+    
+    return name1 === name2 || fileName1 === fileName2;
+  };
+
   useEffect(() => {
     // Initialize file details from fileName prop
     if (fileName) {
@@ -78,30 +89,68 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
     uploadService.setStatusChangeCallback((status, results) => {
       console.log('AnalysisContainer received status change:', status, results);
       
+      const targetFileName = results?.fileName;
+      if (!targetFileName) {
+        console.warn('Status change received without fileName, ignoring');
+        return;
+      }
+      
       if (status === 'completed' && results) {
         setAnalysisResults(results);
         setFileDetails(prevDetails => 
-          prevDetails.map(detail => ({
-            ...detail,
-            agentName: results.agentName || results.agent || detail.agentName,
-            status: 'completed',
-            score: `${results.score || results.totalMultipliedScore || '92'} / 92`
-          }))
+          prevDetails.map(detail => {
+            // Only update the specific file that completed
+            if (isFileNameMatch(detail.name, targetFileName)) {
+              return {
+                ...detail,
+                agentName: results.agentName || results.agent || detail.agentName,
+                status: 'completed',
+                score: `${results.score || results.totalMultipliedScore || '92'} / 92`
+              };
+            }
+            return detail; // Keep other files unchanged
+          })
         );
       } else if (status === 'failed') {
         setFileDetails(prevDetails => 
-          prevDetails.map(detail => ({
-            ...detail,
-            status: 'failed',
-            score: '- / 92'
-          }))
+          prevDetails.map(detail => {
+            // Only update the specific file that failed
+            if (isFileNameMatch(detail.name, targetFileName)) {
+              return {
+                ...detail,
+                status: 'failed',
+                score: '- / 92'
+              };
+            }
+            return detail; // Keep other files unchanged
+          })
         );
       } else if (status === 'processing') {
         setFileDetails(prevDetails => 
-          prevDetails.map(detail => ({
-            ...detail,
-            status: 'processing'
-          }))
+          prevDetails.map(detail => {
+            // Only update the specific file that started processing
+            if (isFileNameMatch(detail.name, targetFileName)) {
+              return {
+                ...detail,
+                status: 'processing'
+              };
+            }
+            return detail; // Keep other files unchanged
+          })
+        );
+      } else if (status === 'timeout' || status === 'error') {
+        setFileDetails(prevDetails => 
+          prevDetails.map(detail => {
+            // Only update the specific file that timed out or errored
+            if (isFileNameMatch(detail.name, targetFileName)) {
+              return {
+                ...detail,
+                status: 'failed',
+                score: '- / 92'
+              };
+            }
+            return detail; // Keep other files unchanged
+          })
         );
       }
     });

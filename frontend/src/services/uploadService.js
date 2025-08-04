@@ -48,7 +48,7 @@ export const uploadService = {
             
             // Notify the analysis container that processing has started
             console.log('Upload completed, notifying processing status');
-            this.statusChangeCallback?.('processing', null);
+            this.statusChangeCallback?.('processing', { fileName: file.name });
             
             // Start polling for execution status
             this.pollExecutionStatus(file.name, onProgress, onStatusChange);
@@ -95,16 +95,16 @@ export const uploadService = {
                 const results = await this.getResults(fileName);
                 console.log('Processing completed, notifying completion status');
                 onStatusChange?.('completed', results);
-                this.statusChangeCallback?.('completed', results);
+                this.statusChangeCallback?.('completed', { ...results, fileName });
               } catch (error) {
                 console.error('Error getting results after completion:', error);
                 onStatusChange?.('completed', null);
-                this.statusChangeCallback?.('completed', null);
+                this.statusChangeCallback?.('completed', { fileName });
               }
             } else {
               console.log('Processing failed, notifying failure status');
               onStatusChange?.('failed', { error: status.error || 'Processing failed' });
-              this.statusChangeCallback?.('failed', { error: status.error || 'Processing failed' });
+              this.statusChangeCallback?.('failed', { error: status.error || 'Processing failed', fileName });
             }
             return; // Stop polling
           }
@@ -129,10 +129,10 @@ export const uploadService = {
           try {
             const results = await this.getResults(fileName);
             onStatusChange?.('completed', results);
-            this.statusChangeCallback?.('completed', results);
+            this.statusChangeCallback?.('completed', { ...results, fileName });
           } catch (error) {
             onStatusChange?.('timeout', null);
-            this.statusChangeCallback?.('timeout', null);
+            this.statusChangeCallback?.('timeout', { fileName });
           }
         }
         
@@ -144,7 +144,7 @@ export const uploadService = {
           setTimeout(poll, 5000); // Continue polling despite error
         } else {
           onStatusChange?.('error', { error: error.message });
-          this.statusChangeCallback?.('error', { error: error.message });
+          this.statusChangeCallback?.('error', { error: error.message, fileName });
         }
       }
     };

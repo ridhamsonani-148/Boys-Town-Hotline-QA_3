@@ -82,6 +82,181 @@ interface AggregatedScores {
   percentageScore: number;
   criteria: string;
   processingError?: string;
+  processingWarning?: string;
+}
+
+// Helper function to recover truncated JSON
+function recoverTruncatedJSON(jsonString: string): LLMOutput {
+  console.log('Attempting to recover truncated JSON');
+  
+  // Find the last complete field before truncation
+  const lines = jsonString.split('\n');
+  let validJson = '';
+  let braceCount = 0;
+  let inString = false;
+  let escapeNext = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+      
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+      }
+      
+      if (!inString) {
+        if (char === '{') braceCount++;
+        if (char === '}') braceCount--;
+      }
+    }
+    
+    validJson += line + '\n';
+    
+    // If we have balanced braces, try to parse
+    if (braceCount === 0 && validJson.trim().endsWith('}')) {
+      try {
+        return JSON.parse(validJson);
+      } catch (e) {
+        // Continue building
+      }
+    }
+  }
+  
+  // If we couldn't balance braces, try to close the JSON properly
+  if (braceCount > 0) {
+    // Remove any incomplete field at the end
+    const lastCommaIndex = validJson.lastIndexOf(',');
+    if (lastCommaIndex > 0) {
+      validJson = validJson.substring(0, lastCommaIndex);
+    }
+    
+    // Add closing braces
+    for (let i = 0; i < braceCount; i++) {
+      validJson += '\n}';
+    }
+    
+    try {
+      return JSON.parse(validJson);
+    } catch (e) {
+      throw new Error(`Could not recover truncated JSON: ${e}`);
+    }
+  }
+  
+  throw new Error('Could not recover truncated JSON');
+}
+
+// Helper function to fix common JSON issues
+function fixCommonJSONIssues(jsonString: string): string {
+  console.log('Fixing common JSON issues');
+  
+  let fixed = jsonString;
+  
+  // Fix trailing commas
+  fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Fix unescaped quotes in strings
+  fixed = fixed.replace(/"([^"]*)"([^"]*)"([^"]*)":/g, '"$1\\"$2\\"$3":');
+  
+  // Fix missing quotes around property names
+  fixed = fixed.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_\s]*)\s*:/g, '$1"$2":');
+  
+  // Fix single quotes to double quotes
+  fixed = fixed.replace(/'/g, '"');
+  
+  // Remove any trailing incomplete content after the last complete object
+  const lastBraceIndex = fixed.lastIndexOf('}');
+  if (lastBraceIndex > 0) {
+    fixed = fixed.substring(0, lastBraceIndex + 1);
+  }
+  
+  return fixed;
+}
+
+// Helper function to extract partial JSON data
+function extractPartialJSON(jsonString: string): LLMOutput {
+  console.log('Extracting partial JSON data');
+  
+  const result: LLMOutput = {};
+  
+  // Extract individual field patterns
+  const fieldPatterns = [
+    /"Tone"\s*:\s*\{[^}]*\}/g,
+    /"Professional"\s*:\s*\{[^}]*\}/g,
+    /"Conversational Style"\s*:\s*\{[^}]*\}/g,
+    /"Supportive Initial Statement"\s*:\s*\{[^}]*\}/g,
+    /"Affirmation and Praise"\s*:\s*\{[^}]*\}/g,
+    /"Reflection of Feelings"\s*:\s*\{[^}]*\}/g,
+    /"Explores Problem\(s\)"\s*:\s*\{[^}]*\}/g,
+    /"Values the Person"\s*:\s*\{[^}]*\}/g,
+    /"Non-Judgmental"\s*:\s*\{[^}]*\}/g,
+    /"Clarifies Non-Suicidal Safety"\s*:\s*\{[^}]*\}/g,
+    /"Suicide Safety Assessment-SSA Initiation and Completion"\s*:\s*\{[^}]*\}/g,
+    /"Exploration of Buffers"\s*:\s*\{[^}]*\}/g,
+    /"Restates then Collaborates Options"\s*:\s*\{[^}]*\}/g,
+    /"Identifies a Concrete Plan of Safety and Well-being"\s*:\s*\{[^}]*\}/g,
+    /"Appropriate Termination"\s*:\s*\{[^}]*\}/g,
+    /"POP Model - does not rush"\s*:\s*\{[^}]*\}/g,
+    /"POP Model - does not dwell"\s*:\s*\{[^}]*\}/g,
+    /"Greeting"\s*:\s*\{[^}]*\}/g
+  ];
+  
+  for (const pattern of fieldPatterns) {
+    const matches = jsonString.match(pattern);
+    if (matches) {
+      for (const match of matches) {
+        try {
+          const fieldObj = JSON.parse(`{${match}}`);
+          Object.assign(result, fieldObj);
+        } catch (e) {
+          console.log(`Could not parse field: ${match}`);
+        }
+      }
+    }
+  }
+  
+  if (Object.keys(result).length === 0) {
+    throw new Error('Could not extract any valid fields');
+  }
+  
+  return result;
+}
+
+// Helper function to create fallback structure with default scores
+function createFallbackStructure(): LLMOutput {
+  console.log('Creating fallback structure with default scores');
+  
+  const fallback: LLMOutput = {};
+  
+  // Create default entries for all expected fields
+  const allCriteria = [
+    ...CATEGORIES.RAPPORT_SKILLS,
+    ...CATEGORIES.COUNSELING_SKILLS,
+    ...CATEGORIES.ORGANIZATIONAL_SKILLS,
+    ...CATEGORIES.TECHNICAL_SKILLS
+  ];
+  
+  for (const criteria of allCriteria) {
+    fallback[criteria] = {
+      score: 0, // Default to 0 to indicate missing data
+      label: "N/A",
+      observation: "Unable to analyze due to malformed LLM output",
+      evidence: "N/A"
+    };
+  }
+  
+  return fallback;
 }
 
 export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsEvent> => {
@@ -127,18 +302,35 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
           llmOutput = JSON.parse(jsonString);
           console.log('Successfully parsed JSON from raw_analysis field');
         } catch (parseError) {
-          console.log('Failed to parse raw_analysis directly, trying regex extraction');
-          // Try to extract JSON using regex if parsing fails
-          const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            try {
-              llmOutput = JSON.parse(jsonMatch[0]);
-              console.log('Successfully extracted JSON using regex');
-            } catch (e) {
-              throw new Error(`Failed to extract valid JSON: ${e}`);
+          console.log('Failed to parse raw_analysis directly, trying advanced recovery methods');
+          
+          // Method 1: Try to extract and fix truncated JSON
+          try {
+            llmOutput = recoverTruncatedJSON(jsonString);
+            console.log('Successfully recovered truncated JSON');
+          } catch (recoveryError) {
+            console.log('Truncated JSON recovery failed, trying regex extraction');
+            
+            // Method 2: Try to extract JSON using regex if parsing fails
+            const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              try {
+                // Try to fix common JSON issues before parsing
+                let cleanedJson = fixCommonJSONIssues(jsonMatch[0]);
+                llmOutput = JSON.parse(cleanedJson);
+                console.log('Successfully extracted and cleaned JSON using regex');
+              } catch (e) {
+                // Method 3: Try partial JSON extraction
+                try {
+                  llmOutput = extractPartialJSON(jsonString);
+                  console.log('Successfully extracted partial JSON data');
+                } catch (partialError) {
+                  throw new Error(`All JSON recovery methods failed: ${e}`);
+                }
+              }
+            } else {
+              throw new Error(`No JSON pattern found in raw_analysis`);
             }
-          } else {
-            throw new Error(`No JSON pattern found in raw_analysis`);
           }
         }
       }
@@ -150,7 +342,8 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
         const jsonMatch = stringBody.match(/\{[\s\S]*"Tone"[\s\S]*"Professional"[\s\S]*\}/);
         if (jsonMatch) {
           try {
-            llmOutput = JSON.parse(jsonMatch[0]);
+            let cleanedJson = fixCommonJSONIssues(jsonMatch[0]);
+            llmOutput = JSON.parse(cleanedJson);
             console.log('Found and parsed JSON pattern in unrecognized format');
           } catch (e) {
             throw new Error(`Found JSON-like pattern but failed to parse: ${e}`);
@@ -162,8 +355,10 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
     } catch (error: any) {
       console.error(`Error processing LLM output: ${error}`);
       processingError = `Error processing LLM output: ${error.message}`;
-      // Create an empty structure as fallback
-      llmOutput = {};
+      
+      // Final fallback: Create a minimal structure with default scores
+      console.log('Creating fallback structure with default scores');
+      llmOutput = createFallbackStructure();
     }
     
     // Normalize field names to handle variations
@@ -214,11 +409,22 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
     
     // Check if all criteria fields are empty and fail the execution if so
     let hasAnyCriteria = false;
+    let hasAnyNonZeroScores = false;
+    
     for (const categoryKey in aggregatedScores.categories) {
       if (Object.keys(aggregatedScores.categories[categoryKey].criteria).length > 0) {
         hasAnyCriteria = true;
-        break;
+        
+        // Check if we have any non-zero scores (indicating real data vs fallback)
+        for (const criteriaKey in aggregatedScores.categories[categoryKey].criteria) {
+          const criteria = aggregatedScores.categories[categoryKey].criteria[criteriaKey];
+          if (criteria.score > 0) {
+            hasAnyNonZeroScores = true;
+            break;
+          }
+        }
       }
+      if (hasAnyNonZeroScores) break;
     }
     
     if (!hasAnyCriteria) {
@@ -227,6 +433,12 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
       
       // Throw an error to fail the Step Function execution
       throw new Error(errorMessage);
+    }
+    
+    // If we only have fallback data (all zeros), add a warning but don't fail
+    if (!hasAnyNonZeroScores && processingError) {
+      console.warn("WARNING: Using fallback structure due to malformed LLM output. All scores are set to 0.");
+      aggregatedScores.processingWarning = "Analysis completed using fallback structure due to malformed LLM output. Manual review recommended.";
     }
     
     // Create the aggregated result key in the results folder
