@@ -74,7 +74,7 @@ const processAgentData = async (data) => {
     counselorGroups[CounselorId].evaluations.push({
       fileName: entry.AudioFileName,
       date: new Date(EvaluationDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      score: `${Math.round(PercentageScore)} / 100`,
+      score: `${Math.round(PercentageScore)} / 92`,
       categoryScores: entry.CategoryScores
     });
   });

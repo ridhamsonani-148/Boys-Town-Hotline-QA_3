@@ -298,10 +298,14 @@ function aggregateScores(llmOutput: LLMOutput): AggregatedScores {
   // Calculate percentage score
   result.percentageScore = (result.totalMultipliedScore / result.totalPossibleScore) * 100;
   
-  // Determine criteria based on percentage score
-  if (result.percentageScore >= 80) {
+  // Determine criteria based on actual score out of 92
+  // Calculate thresholds: 80% and 70% of total possible score
+  const meetsThreshold = result.totalPossibleScore * 0.80; // 73.6 out of 92
+  const improvementThreshold = result.totalPossibleScore * 0.70; // 64.4 out of 92
+  
+  if (result.totalMultipliedScore >= meetsThreshold) {
     result.criteria = "Meets Criteria";
-  } else if (result.percentageScore >= 70 && result.percentageScore <= 79) {
+  } else if (result.totalMultipliedScore >= improvementThreshold) {
     result.criteria = "Improvement Needed";
   } else {
     result.criteria = "Not at Criteria";

@@ -69,7 +69,7 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
         name: name.trim(),
         agentName: getAgentNameFromFile(name.trim()),
         status: 'processing',
-        score: '- / 100'
+        score: '- / 92'
       }));
       setFileDetails(files);
     }
@@ -85,7 +85,7 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
             ...detail,
             agentName: results.agentName || results.agent || detail.agentName,
             status: 'completed',
-            score: `${results.score || results.totalMultipliedScore || '92'} / 100`
+            score: `${results.score || results.totalMultipliedScore || '92'} / 92`
           }))
         );
       } else if (status === 'failed') {
@@ -93,7 +93,7 @@ function AnalysisContainer({ fileName, onBackToUpload }) {
           prevDetails.map(detail => ({
             ...detail,
             status: 'failed',
-            score: '- / 100'
+            score: '- / 92'
           }))
         );
       } else if (status === 'processing') {
