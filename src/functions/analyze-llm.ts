@@ -134,7 +134,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   1. First, read the entire transcript to understand the full context and flow of the conversation
   2. For each rubric item, search for specific evidence that meets or fails to meet the criteria
   3. Apply a strict, consistent scoring standard across all evaluations
-  4. Provide precise evidence with timestamps for each score
+  4. Provide precise evidence with timestamps for each score that fails to meet the criteria. 
   5. Include a brief, factual observation explaining your scoring decision
 
   **SCORING PRINCIPLES:**
@@ -147,7 +147,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   For **every** score you assign:
   - Pick exactly one checkbox value.
   - Cite the exact transcript line(s) that triggered that score.
-  - If you can't find evidence, set evidence to "N/A".
+  - If you can't find evidence, set evidence to "N/A". Evidence only needs to be provided when points are being deducted.
 
   **Do NOT** give full marks by default. If a criterion isn't explicitly met, deduct points.  
 
@@ -175,13 +175,13 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
         "score": 1,
         "label": "Yes",
         "observation": "Calm and supportive tone.",
-        "evidence": "00:24.500 AGENT: It's great that you're reaching out."
+        "evidence": "N/A" // No points deducted, so no evidence needed
       }
     }
 
   **VERIFICATION CHECKLIST:**
   Before finalizing your evaluation:
-  1. Confirm each score has supporting evidence from the transcript
+  1. Confirm each deducted score has supporting evidence from the transcript
   2. Verify all required rubric items are scored
   3. Check that observations are factual and not interpretive
   4. Ensure JSON structure is valid and complete
