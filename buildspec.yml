@@ -1,7 +1,7 @@
 version: 0.2
 
 # Boys Town Hotline QA - Simplified CodeBuild Deployment
-# This buildspec works with the deploy-simple.sh script
+# This buildspec works with the deploy.sh script
 
 phases:
   install:
@@ -53,7 +53,7 @@ phases:
       - |
         if ! aws secretsmanager describe-secret --secret-id "$GITHUB_TOKEN_SECRET" --region "$AWS_REGION" > /dev/null 2>&1; then
           echo "❌ ERROR: GitHub token secret '$GITHUB_TOKEN_SECRET' not found"
-          echo "This should have been created by the deploy-simple.sh script"
+          echo "This should have been created by the deploy.sh script"
           exit 1
         fi
         echo "✅ GitHub token secret validated"

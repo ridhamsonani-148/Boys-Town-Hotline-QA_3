@@ -15,7 +15,7 @@ A comprehensive, enterprise-grade automated quality assessment system for Boys T
 - **Amazon DynamoDB**: Stores counselor evaluations and profile data with indexing
 - **Amazon API Gateway**: RESTful API for frontend integration
 - **AWS Amplify**: Hosts React frontend with automated CI/CD
-- **AWS CodeBuild**: Production deployment automation
+- **AWS CodeBuild**: Automated deployment system
 
 ### System Architecture
 ```
@@ -74,128 +74,54 @@ your-bucket-name/
 - **Global Secondary Index**: ProgramTypeIndex for program-based queries
 - **Attributes**: Personal info, program assignments, contact details
 
-## Production Deployment
+## Deployment Using AWS CodeBuild and AWS CloudShell
 
 ### Prerequisites
+- Have access to CodeBuild and AWS CloudShell
+- GitHub Personal Access Token with `repo`, `admin:repo_hook`, and `workflow` permissions
 
-#### Required Software
+### Deployment
 
-**Node.js (v18.x or later)**
-- **macOS**: `brew install node` or download from [nodejs.org](https://nodejs.org/)
-- **Windows**: Download installer from [nodejs.org](https://nodejs.org/) or use `winget install OpenJS.NodeJS`
+1. **Open AWS CloudShell in your AWS Console:**
+   - Click the CloudShell icon in the AWS Console navigation bar
+   - Wait for the CloudShell environment to initialize
 
-**AWS CLI (v2.x)**
-- **macOS**: `brew install awscli` or download from [AWS CLI Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-- **Windows**: Download MSI installer from [AWS CLI Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-
-**AWS CDK (v2.87.0)**
-```bash
-npm install -g aws-cdk@2.87.0
-```
-
-**Git**
-- **macOS**: `brew install git` or use Xcode Command Line Tools
-- **Windows**: Download from [git-scm.com](https://git-scm.com/download/win)
-
-#### AWS Account Setup
-
-1. **Configure AWS CLI**:
+2. **Clone the repository** (Make sure to have your own forked copy of the repo and replace the link with the forked repository link):
    ```bash
-   aws configure
-   ```
-   Provide your AWS Access Key ID, Secret Access Key, default region, and output format.
-
-2. **Verify Configuration**:
-   ```bash
-   aws sts get-caller-identity
+   git clone https://github.com/<YOUR-USERNAME>/Boys-Town-Hotline-QA
+   cd Boys-Town-Hotline-QA/
    ```
 
-3. **Required AWS Permissions**:
-   Your AWS user/role needs permissions for:
-   - CloudFormation (full access)
-   - IAM (full access)
-   - S3, Lambda, API Gateway, DynamoDB, Step Functions
-   - Transcribe, Bedrock, Amplify, CodeBuild
-   - Secrets Manager (for GitHub token)
-
-### Production Deployment Process
-
-#### Step 1: Repository Setup
-
-1. **Fork the Repository**:
-   Fork this repository to your GitHub account or organization.
-
-2. **Clone Your Fork**:
+3. **Deploy using the deployment script** (recommended): The script will prompt you for variables needed for deployment.
    ```bash
-   git clone https://github.com/YOUR_USERNAME/Boys-Town-Hotline-QA.git
-   cd Boys-Town-Hotline-QA
+   chmod +x deploy.sh
+   ./deploy.sh
    ```
 
-3. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
+4. **Follow the interactive prompts:**
+   - Enter your forked GitHub repository URL
+   - Provide a unique company/project name for resource naming
+   - Enter your GitHub Personal Access Token
+   - Choose environment (dev/staging/prod) - default: prod
+   - Confirm deployment
 
-#### Step 2: GitHub Token Configuration
+5. **Wait for deployment completion** (10-15 minutes)
 
-1. **Create GitHub Personal Access Token**:
-   - Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
-   - Generate new token with `repo` and `admin:repo_hook`, `project`, `workflow permissions`
-   - Copy the token (starts with `ghp_`)
+6. **Access your deployed system** using the URLs provided in the output
 
-#### Step 3: Production Deployment
+### GitHub Personal Access Token Setup
+Create your token at: https://github.com/settings/tokens
 
-Run the automated production deployment script:
+**Required permissions:**
+- `repo` - Full control of private repositories
+- `admin:repo_hook` - Full control of repository hooks  
+- `workflow` - Update GitHub Action workflows
 
-```bash
-./deploy-production-codebuild.sh \
-  --company-name "your-company-name" \
-  --github-owner "your-github-username" \
-  --github-repo "your-repo-name" \
-  --github-token "your-github-token" \
-  --region "us-east-1"
-```
-
-**Parameters Explained**:
-- `--company-name`: Used for unique resource naming (e.g., "acme-healthcare")
-- `--github-owner`: Your GitHub username or organization
-- `--github-repo`: Name of your forked repository
-- `--github-token`: GitHub personal access token
-- `--region`: AWS region for deployment (optional, defaults to us-east-1)
-
-#### Step 4: Deployment Process
-
-The script will:
-1. Validate AWS credentials and GitHub token
-2. Store GitHub token in AWS Secrets Manager
-3. Build the TypeScript project
-4. Create CodeBuild project for automated deployments
-5. Deploy the complete production system (10-15 minutes)
-6. Display deployment results and important URLs
-
-#### Step 5: Post-Deployment
-
-After successful deployment, you'll receive:
-
-- **Frontend URL**: `https://main.{app-id}.amplifyapp.com`
-- **API Gateway URL**: For backend API access
-- **S3 Bucket Name**: For file uploads
-- **Management Console URLs**: For monitoring and administration
-
-## Development Deployment
-
-For development and testing purposes, you can use the local deployment script:
-
-```bash
-# Basic development deployment
-./deploy.sh
-
-# Custom environment
-./deploy.sh --env staging --bucket-prefix my-company-qa
-
-# Backend only (no frontend)
-./deploy.sh --backend-only
-```
+### What Gets Deployed
+- Complete serverless backend (S3, Lambda, Step Functions, DynamoDB, API Gateway)
+- AI/ML services integration (Transcribe, Bedrock)
+- React frontend with Amplify hosting
+- Automated CI/CD pipeline
 
 ## API Reference
 
@@ -232,20 +158,54 @@ All API endpoints are publicly accessible. In production, consider adding authen
 
 ### Common Issues
 
-**Deployment Failures**:
-- Verify AWS CLI configuration: `aws sts get-caller-identity`
-- Check IAM permissions for CloudFormation and service creation
-- Ensure GitHub token has correct permissions
+**AWS CLI Not Configured**
+```bash
+aws configure
+# Or use AWS CloudShell
+```
 
-**Processing Failures**:
-- Check Step Functions execution logs in AWS Console
-- Verify audio file format (.wav) and location (records/ folder)
-- Monitor Lambda function logs in CloudWatch
+**Insufficient Permissions**
+Ensure your AWS user has:
+- CloudFormation full access
+- IAM full access  
+- Service creation permissions (S3, Lambda, etc.)
 
-**Frontend Issues**:
-- Verify Amplify build logs in AWS Console
-- Check environment variables in Amplify app settings
-- Ensure API Gateway CORS configuration
+**GitHub Token Issues**
+- Verify token has correct permissions
+- Check token hasn't expired
+- Ensure repository is accessible
+
+**Build Failures**
+- Check CodeBuild logs in AWS Console
+- Verify all parameters are correct
+- Ensure GitHub repository is accessible
+
+### Getting Help
+
+1. **Check Build Logs**: AWS CodeBuild console shows detailed logs
+2. **CloudFormation Events**: See what resources are being created/failed
+3. **GitHub Issues**: Report problems in the repository
+
+## Security Notes
+
+- GitHub tokens are stored securely in AWS Secrets Manager
+- IAM roles follow least-privilege principles
+- All resources are created in your AWS account
+- No external access to your data
+
+## Cost Estimation
+
+Typical monthly costs for moderate usage:
+- **S3 Storage**: $1-5 (depending on file volume)
+- **Lambda**: $5-20 (based on processing frequency)
+- **DynamoDB**: $1-10 (based on data volume)
+- **Transcribe**: $0.024 per minute of audio
+- **Bedrock**: $0.003 per 1K input tokens
+- **Other Services**: $5-15 (API Gateway, Step Functions, etc.)
+
+**Total estimated cost**: $15-75/month depending on usage
+
+Use the [AWS Pricing Calculator](https://calculator.aws) for detailed estimates.
 
 ## Contributing
 
@@ -263,3 +223,7 @@ For technical support or questions:
 - Review AWS CloudWatch logs for detailed error information
 
 ---
+
+## 🎉 That's It!
+
+Your complete Boys Town Hotline QA system will be deployed and ready to use in minutes. The simplified deployment handles all the complexity automatically while maintaining production-grade security and scalability.
