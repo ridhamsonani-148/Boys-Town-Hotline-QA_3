@@ -4,6 +4,8 @@ A comprehensive, enterprise-grade automated quality assessment system for Boys T
 
 ## Architecture Overview
 
+![Boys Town Hotline QA Architecture](docs/images/Architecture.png)
+
 ### Core AWS Services
 - **Amazon S3**: Secure storage for recordings, transcripts, and analysis results
 - **AWS Transcribe Call Analytics**: Advanced speech-to-text with speaker separation and call insights
