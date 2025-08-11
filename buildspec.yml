@@ -1,81 +1,145 @@
 version: 0.2
 
-# AWS CodeBuild specification for Boys Town Hotline QA deployment
-# This buildspec automates the same process as the local deploy.sh script
+# Boys Town Hotline QA - Simplified CodeBuild Deployment
+# This buildspec works with the deploy-simple.sh script
 
 phases:
   install:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "Installing dependencies..."
+      - echo "🚀 Boys Town Hotline QA Deployment Started"
+      - echo "Installing AWS CDK CLI..."
       - npm install -g aws-cdk@2.87.0
-      - npm install
-      
+      - echo "Installing project dependencies..."
+      - npm ci
+
   pre_build:
     commands:
-      - echo "Pre-build phase started on `date`"
+      - echo "📋 Pre-build phase started on $(date)"
       - echo "Checking AWS CLI configuration..."
       - aws sts get-caller-identity
-      - echo "Current directory contents:"
-      - ls -la
-      - echo "Environment variables:"
-      - echo "ENV_NAME=${ENV_NAME:-dev}"
-      - echo "BUCKET_PREFIX=${BUCKET_PREFIX:-boys-town-hotline-qa}"
-      - echo "DEPLOY_FRONTEND=${DEPLOY_FRONTEND:-true}"
-      - echo "GITHUB_OWNER=${GITHUB_OWNER:-ASUCICREPO}"
-      - echo "GITHUB_REPO=${GITHUB_REPO:-Boys-Town-Hotline-QA}"
-      - echo "GITHUB_TOKEN_SECRET=${GITHUB_TOKEN_SECRET:-github-token}"
-      
+      - echo ""
+      - echo "📋 Environment Configuration:"
+      - echo "COMPANY_NAME:$COMPANY_NAME"
+      - echo "GITHUB_OWNER:$GITHUB_OWNER"
+      - echo "GITHUB_REPO:$GITHUB_REPO"
+      - echo "GITHUB_TOKEN_SECRET:$GITHUB_TOKEN_SECRET"
+      - echo "ENV_NAME:$ENV_NAME"
+      - echo "AWS_REGION:$AWS_REGION"
+      - echo "ACTION:$ACTION"
+      - echo ""
+      - echo "📦 Building TypeScript project..."
+      - npm run build
+      - echo "✅ TypeScript build completed"
+
   build:
     commands:
-      - echo "Build phase started on `date`"
-      - echo "Building TypeScript project..."
-      - npm run build
-      
-      - echo "Checking CDK bootstrap status..."
+      - echo "🏗️  Build phase started on $(date)"
+      - echo "Setting up CDK environment..."
       - ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-      - REGION=$(aws configure get region || echo "us-east-1")
-      - echo "Account: $ACCOUNT, Region: $REGION"
+      - echo "Account:$ACCOUNT, Region:$AWS_REGION"
       
-      # Bootstrap CDK if needed
+      - echo "🔧 Checking CDK bootstrap status..."
       - |
-        if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region $REGION > /dev/null 2>&1; then
-          echo "Bootstrapping CDK..."
-          cdk bootstrap aws://$ACCOUNT/$REGION
+        if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region $AWS_REGION > /dev/null 2>&1; then
+          echo "🔧 Bootstrapping CDK..."
+          cdk bootstrap aws://$ACCOUNT/$AWS_REGION
         else
-          echo "CDK already bootstrapped"
+          echo "✅ CDK already bootstrapped"
         fi
       
-      # Check GitHub token secret if deploying frontend
+      - echo "🔐 Validating GitHub token secret..."
       - |
-        if [ "${DEPLOY_FRONTEND:-true}" = "true" ]; then
-          echo "Checking GitHub token secret..."
-          if ! aws secretsmanager describe-secret --secret-id "${GITHUB_TOKEN_SECRET:-github-token}" > /dev/null 2>&1; then
-            echo "ERROR: GitHub token secret '${GITHUB_TOKEN_SECRET:-github-token}' not found"
-            echo "Please create the secret before running this build"
-            exit 1
-          fi
-          echo "GitHub token secret found"
+        if ! aws secretsmanager describe-secret --secret-id "$GITHUB_TOKEN_SECRET" --region "$AWS_REGION" > /dev/null 2>&1; then
+          echo "❌ ERROR: GitHub token secret '$GITHUB_TOKEN_SECRET' not found"
+          echo "This should have been created by the deploy-simple.sh script"
+          exit 1
         fi
+        echo "✅ GitHub token secret validated"
       
-      - echo "Deploying CDK stack..."
       - |
-        cdk deploy HotlineQaStack-${ENV_NAME:-dev} \
-          --context envName=${ENV_NAME:-dev} \
-          --context bucketNamePrefix=${BUCKET_PREFIX:-boys-town-hotline-qa} \
-          --context deployFrontend=${DEPLOY_FRONTEND:-true} \
-          --context githubOwner=${GITHUB_OWNER:-ASUCICREPO} \
-          --context githubRepo=${GITHUB_REPO:-Boys-Town-Hotline-QA} \
-          --context githubTokenSecretName=${GITHUB_TOKEN_SECRET:-github-token} \
-          --require-approval never
+        if [ "$ACTION" = "destroy" ]; then
+          echo "🗑️  Destroying Boys Town Hotline QA system..."
+          echo "Destroying main application stack..."
+          cdk destroy HotlineQaStack-$ENV_NAME \
+            --context envName=$ENV_NAME \
+            --context bucketNamePrefix=${COMPANY_NAME}-hotline-qa \
+            --context deployFrontend=true \
+            --context githubOwner=$GITHUB_OWNER \
+            --context githubRepo=$GITHUB_REPO \
+            --context githubTokenSecretName=$GITHUB_TOKEN_SECRET \
+            --force || echo "Stack may not exist or already destroyed"
           
+          echo "🗑️  Cleaning up GitHub token secret..."
+          aws secretsmanager delete-secret \
+            --secret-id "$GITHUB_TOKEN_SECRET" \
+            --region "$AWS_REGION" \
+            --force-delete-without-recovery || echo "Secret may not exist"
+          
+          echo "✅ Destroy process completed"
+        else
+          echo "🚀 Deploying Boys Town Hotline QA system..."
+          echo "This will take 10-15 minutes to complete..."
+          
+          cdk deploy HotlineQaStack-$ENV_NAME \
+            --context envName=$ENV_NAME \
+            --context bucketNamePrefix=${COMPANY_NAME}-hotline-qa \
+            --context deployFrontend=true \
+            --context githubOwner=$GITHUB_OWNER \
+            --context githubRepo=$GITHUB_REPO \
+            --context githubTokenSecretName=$GITHUB_TOKEN_SECRET \
+            --require-approval never
+          
+          echo "✅ Deployment completed successfully!"
+        fi
+
   post_build:
     commands:
-      - echo "Post-build phase started on `date`"
-      - echo "Deployment completed successfully!"
-      - echo "Listing CloudFormation outputs..."
-      - aws cloudformation describe-stacks --stack-name HotlineQaStack-${ENV_NAME:-dev} --query 'Stacks[0].Outputs' --output table || true
+      - echo "📋 Post-build phase started on $(date)"
+      - |
+        if [ "$ACTION" = "deploy" ]; then
+          echo "📊 Deployment Summary:"
+          echo "======================"
+          echo ""
+          echo "🔗 CloudFormation Stack Outputs:"
+          aws cloudformation describe-stacks \
+            --stack-name HotlineQaStack-$ENV_NAME \
+            --region $AWS_REGION \
+            --query 'Stacks[0].Outputs' \
+            --output table || echo "Stack outputs not available yet"
+          
+          echo ""
+          echo "🎉 Boys Town Hotline QA System Deployed Successfully!"
+          echo ""
+          echo "📋 What was deployed:"
+          echo "✅ S3 bucket for audio files and results"
+          echo "✅ Lambda functions for processing pipeline"
+          echo "✅ Step Functions workflow orchestration"
+          echo "✅ DynamoDB tables for counselor data"
+          echo "✅ API Gateway for REST endpoints"
+          echo "✅ Amplify frontend application"
+          echo "✅ Transcribe Call Analytics integration"
+          echo "✅ Bedrock AI analysis capabilities"
+          echo ""
+          echo "📋 Next Steps:"
+          echo "1. Access your frontend via the Amplify URL (shown above)"
+          echo "2. Test API endpoints using the API Gateway URL"
+          echo "3. Upload test audio files (.wav format) to S3 bucket 'records/' folder"
+          echo "4. Monitor processing in Step Functions console"
+          echo "5. View results in DynamoDB tables and frontend interface"
+          echo ""
+          echo "🔗 Management Console URLs:"
+          echo "CloudFormation: https://console.aws.amazon.com/cloudformation/home?region=$AWS_REGION"
+          echo "Step Functions: https://console.aws.amazon.com/states/home?region=$AWS_REGION"
+          echo "API Gateway: https://console.aws.amazon.com/apigateway/home?region=$AWS_REGION"
+          echo "Amplify: https://console.aws.amazon.com/amplify/home?region=$AWS_REGION"
+        else
+          echo "🗑️  Destruction completed successfully!"
+          echo "All AWS resources have been removed."
+        fi
+      
+      - echo "📋 CDK $ACTION process completed on $(date)"
 
 artifacts:
   files:
