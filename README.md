@@ -78,7 +78,30 @@ your-bucket-name/
 
 ### Prerequisites
 - Have access to CodeBuild and AWS CloudShell
-- GitHub Personal Access Token with `repo`, `admin:repo_hook`, and `workflow` permissions
+
+- Fork this repository to your own GitHub account (required for deployment and CI/CD):
+  1. Navigate to [https://github.com/ASUCICREPO/osu-blueberry](https://github.com/ASUCICREPO/Boys-Town-Hotline-QA)
+  2. Click the "Fork" button in the top right corner
+  3. Select your GitHub account as the destination
+  4. Wait for the forking process to complete
+  5. You'll now have your own copy at https://github.com/YOUR-USERNAME/Boys-Town-Hotline-QA
+
+- GitHub Personal Access Token with repo permissions:
+  1. Go to GitHub Settings > Developer Settings > Personal Access Tokens > Tokens (classic)
+  2. Click "Generate new token (classic)"
+  3. Give the token a name and select the "repo" and "admin:repo_hook" scope
+  4. Click "Generate token" and save the token securely
+  For detailed instructions, see:
+  - https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
+
+- Enable Nova Pro access in AWS Bedrock models in your AWS account in **us-east-1**:
+  1. Navigate to the AWS Bedrock console
+  2. Click "Model access" in the left navigation pane
+  3. Click "Manage model access."
+  4. Find each model in the list and select the checkbox next to it
+  5. Click "Save changes" at the bottom of the page
+  6. Wait for model access to be granted (usually within minutes)
+  7. Verify access by checking the "Status" column shows "Access granted"
 
 ### Deployment
 
@@ -102,26 +125,11 @@ your-bucket-name/
    - Enter your forked GitHub repository URL
    - Provide a unique company/project name for resource naming
    - Enter your GitHub Personal Access Token
-   - Choose environment (dev/staging/prod) - default: prod
    - Confirm deployment
 
 5. **Wait for deployment completion** (10-15 minutes)
 
 6. **Access your deployed system** using the URLs provided in the output
-
-### GitHub Personal Access Token Setup
-Create your token at: https://github.com/settings/tokens
-
-**Required permissions:**
-- `repo` - Full control of private repositories
-- `admin:repo_hook` - Full control of repository hooks  
-- `workflow` - Update GitHub Action workflows
-
-### What Gets Deployed
-- Complete serverless backend (S3, Lambda, Step Functions, DynamoDB, API Gateway)
-- AI/ML services integration (Transcribe, Bedrock)
-- React frontend with Amplify hosting
-- Automated CI/CD pipeline
 
 ## API Reference
 
@@ -193,20 +201,6 @@ Ensure your AWS user has:
 - All resources are created in your AWS account
 - No external access to your data
 
-## Cost Estimation
-
-Typical monthly costs for moderate usage:
-- **S3 Storage**: $1-5 (depending on file volume)
-- **Lambda**: $5-20 (based on processing frequency)
-- **DynamoDB**: $1-10 (based on data volume)
-- **Transcribe**: $0.024 per minute of audio
-- **Bedrock**: $0.003 per 1K input tokens
-- **Other Services**: $5-15 (API Gateway, Step Functions, etc.)
-
-**Total estimated cost**: $15-75/month depending on usage
-
-Use the [AWS Pricing Calculator](https://calculator.aws) for detailed estimates.
-
 ## Contributing
 
 1. Fork the repository
@@ -223,7 +217,3 @@ For technical support or questions:
 - Review AWS CloudWatch logs for detailed error information
 
 ---
-
-## 🎉 That's It!
-
-Your complete Boys Town Hotline QA system will be deployed and ready to use in minutes. The simplified deployment handles all the complexity automatically while maintaining production-grade security and scalability.

@@ -77,20 +77,14 @@ if [ -z "${GITHUB_TOKEN:-}" ]; then
   read -rp "Enter GitHub Personal Access Token: " GITHUB_TOKEN
 fi
 
-# 4) Environment
-if [ -z "${ENV_NAME:-}" ]; then
-  read -rp "Enter environment name (dev/staging/prod) [default: prod]: " ENV_NAME
-  ENV_NAME=${ENV_NAME:-prod}
-fi
-
-# 5) AWS Region
+# 4) AWS Region
 if [ -z "${AWS_REGION:-}" ]; then
   CURRENT_REGION=$(aws configure get region 2>/dev/null || echo "us-east-1")
   read -rp "Enter AWS region [default: $CURRENT_REGION]: " AWS_REGION
   AWS_REGION=${AWS_REGION:-$CURRENT_REGION}
 fi
 
-# 6) Action
+# 5) Action
 if [ -z "${ACTION:-}" ]; then
   read -rp "Would you like to [deploy] or [destroy] the system? [default: deploy]: " ACTION
   ACTION=${ACTION:-deploy}
@@ -108,7 +102,6 @@ echo "========================="
 echo "GitHub Owner: $GITHUB_OWNER"
 echo "GitHub Repo: $GITHUB_REPO"
 echo "Company Name: $COMPANY_NAME"
-echo "Environment: $ENV_NAME"
 echo "AWS Region: $AWS_REGION"
 echo "Action: $ACTION"
 echo ""
@@ -145,7 +138,7 @@ echo "✅ AWS Region: $AWS_REGION"
 echo ""
 echo "🔐 Setting up GitHub token in Secrets Manager..."
 
-SECRET_NAME="${COMPANY_NAME}-github-token-${ENV_NAME}"
+SECRET_NAME="${COMPANY_NAME}-github-token-prod"
 
 if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
   echo "⚠️  Secret '$SECRET_NAME' already exists, updating..."
@@ -168,7 +161,7 @@ echo "✅ GitHub token configured"
 # 4. Ensure IAM service role exists
 # --------------------------------------------------
 
-PROJECT_NAME="${COMPANY_NAME}-hotline-qa-${ENV_NAME}"
+PROJECT_NAME="${COMPANY_NAME}-hotline-qa-prod"
 ROLE_NAME="${PROJECT_NAME}-service-role"
 
 echo ""
@@ -295,7 +288,7 @@ ENVIRONMENT='{
     },
     {
       "name": "ENV_NAME",
-      "value": "'"$ENV_NAME"'",
+      "value": "prod",
       "type": "PLAINTEXT"
     },
     {
@@ -400,7 +393,7 @@ if [ -n "$BUILD_ID" ]; then
           # Get CloudFormation outputs
           echo "🔗 CloudFormation Stack Outputs:"
           aws cloudformation describe-stacks \
-            --stack-name "HotlineQaStack-$ENV_NAME" \
+            --stack-name "HotlineQaStack-prod" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs' \
             --output table 2>/dev/null || echo "Stack outputs will be available shortly..."

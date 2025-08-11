@@ -25,7 +25,6 @@ phases:
       - echo "GITHUB_OWNER:$GITHUB_OWNER"
       - echo "GITHUB_REPO:$GITHUB_REPO"
       - echo "GITHUB_TOKEN_SECRET:$GITHUB_TOKEN_SECRET"
-      - echo "ENV_NAME:$ENV_NAME"
       - echo "AWS_REGION:$AWS_REGION"
       - echo "ACTION:$ACTION"
       - echo ""
@@ -62,8 +61,8 @@ phases:
         if [ "$ACTION" = "destroy" ]; then
           echo "🗑️  Destroying Boys Town Hotline QA system..."
           echo "Destroying main application stack..."
-          cdk destroy HotlineQaStack-$ENV_NAME \
-            --context envName=$ENV_NAME \
+          cdk destroy HotlineQaStack-prod \
+            --context envName=prod \
             --context bucketNamePrefix=${COMPANY_NAME}-hotline-qa \
             --context deployFrontend=true \
             --context githubOwner=$GITHUB_OWNER \
@@ -82,8 +81,8 @@ phases:
           echo "🚀 Deploying Boys Town Hotline QA system..."
           echo "This will take 10-15 minutes to complete..."
           
-          cdk deploy HotlineQaStack-$ENV_NAME \
-            --context envName=$ENV_NAME \
+          cdk deploy HotlineQaStack-prod \
+            --context envName=prod \
             --context bucketNamePrefix=${COMPANY_NAME}-hotline-qa \
             --context deployFrontend=true \
             --context githubOwner=$GITHUB_OWNER \
@@ -104,7 +103,7 @@ phases:
           echo ""
           echo "🔗 CloudFormation Stack Outputs:"
           aws cloudformation describe-stacks \
-            --stack-name HotlineQaStack-$ENV_NAME \
+            --stack-name HotlineQaStack-prod \
             --region $AWS_REGION \
             --query 'Stacks[0].Outputs' \
             --output table || echo "Stack outputs not available yet"
