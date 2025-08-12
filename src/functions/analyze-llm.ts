@@ -134,7 +134,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   1. First, read the entire transcript to understand the full context and flow of the conversation
   2. For each rubric item, search for specific evidence that meets or fails to meet the criteria
   3. Apply a strict, consistent scoring standard across all evaluations
-  4. Provide precise evidence with timestamps for each score that fails to meet the criteria. 
+  4. Provide precise evidence with timestamps for each score
   5. Include a brief, factual observation explaining your scoring decision
 
   **SCORING PRINCIPLES:**
@@ -147,7 +147,7 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
   For **every** score you assign:
   - Pick exactly one checkbox value.
   - Cite the exact transcript line(s) that triggered that score.
-  - If you can't find evidence, set evidence to "N/A". Evidence only needs to be provided when points are being deducted.
+  - If you can't find evidence, set evidence to "N/A".
 
   **Do NOT** give full marks by default. If a criterion isn't explicitly met, deduct points.  
 
@@ -166,7 +166,6 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
       "label": "<Yes/No/Somewhat>",
       "observation": "<your concise rationale>",
       "evidence": "<timestamp> <speaker>: <exact transcript line>" (IMPORTANT: Always include the timestamp)
-  - **Only** give evidence when point is being deducted. If a full score is given, set evidence to "N/A".
   - **Only** use lines provided in the user transcript for evidence. Do **not** invent or paraphrase. If no line matches, set evidence to "N/A".
 
   **Example**
@@ -175,13 +174,13 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
         "score": 1,
         "label": "Yes",
         "observation": "Calm and supportive tone.",
-        "evidence": "N/A" // No points deducted, so no evidence needed
+        "evidence": "00:24.500 AGENT: It's great that you're reaching out."
       }
     }
 
   **VERIFICATION CHECKLIST:**
   Before finalizing your evaluation:
-  1. Confirm each deducted score has supporting evidence from the transcript
+  1. Confirm each score has supporting evidence from the transcript
   2. Verify all required rubric items are scored
   3. Check that observations are factual and not interpretive
   4. Ensure JSON structure is valid and complete
