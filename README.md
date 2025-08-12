@@ -80,7 +80,7 @@ your-bucket-name/
 - Have access to CodeBuild and AWS CloudShell
 
 - Fork this repository to your own GitHub account (required for deployment and CI/CD):
-  1. Navigate to [https://github.com/ASUCICREPO/osu-blueberry](https://github.com/ASUCICREPO/Boys-Town-Hotline-QA)
+  1. Navigate to [https://github.com/ASUCICREPO/Boys-Town-Hotline-QA](https://github.com/ASUCICREPO/Boys-Town-Hotline-QA)
   2. Click the "Fork" button in the top right corner
   3. Select your GitHub account as the destination
   4. Wait for the forking process to complete
