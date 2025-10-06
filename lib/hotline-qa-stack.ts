@@ -170,7 +170,7 @@ export class HotlineQaStack extends cdk.Stack {
     const startWorkflowFunction = new lambdaNodejs.NodejsFunction(this, 'StartWorkflowFunction', {
       entry: path.join(__dirname, '../src/functions/start-workflow.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       description: 'Starts the Step Functions workflow for processing call recordings',
     });
@@ -179,7 +179,7 @@ export class HotlineQaStack extends cdk.Stack {
     const transcribeFunction = new lambdaNodejs.NodejsFunction(this, 'TranscribeFunction', {
       entry: path.join(__dirname, '../src/functions/start-transcribe.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
@@ -192,7 +192,7 @@ export class HotlineQaStack extends cdk.Stack {
     const checkTranscribeStatusFunction = new lambdaNodejs.NodejsFunction(this, 'CheckTranscribeStatusFunction', {
       entry: path.join(__dirname, '../src/functions/check-transcribe-status.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       description: 'Checks the status of Transcribe Call Analytics jobs',
     });
@@ -201,7 +201,7 @@ export class HotlineQaStack extends cdk.Stack {
     const formatFunction = new lambdaNodejs.NodejsFunction(this, 'FormatFunction', {
       entry: path.join(__dirname, '../src/functions/format-transcript.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
@@ -213,7 +213,7 @@ export class HotlineQaStack extends cdk.Stack {
     const analyzeLLMFunction = new lambdaNodejs.NodejsFunction(this, 'AnalyzeLLMFunction', {
       entry: path.join(__dirname, '../src/functions/analyze-llm.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.minutes(15), // Maximum Lambda timeout for long-running LLM calls
       memorySize: 1024, // Increased memory for handling large transcripts
       environment: {
@@ -226,7 +226,7 @@ export class HotlineQaStack extends cdk.Stack {
     const aggregateScoresFunction = new lambdaNodejs.NodejsFunction(this, 'AggregateScoresFunction', {
       entry: path.join(__dirname, '../src/functions/aggregate-scores.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
@@ -238,7 +238,7 @@ export class HotlineQaStack extends cdk.Stack {
     const updateCounselorRecordsFunction = new lambdaNodejs.NodejsFunction(this, 'UpdateCounselorRecordsFunction', {
       entry: path.join(__dirname, '../src/functions/update-counselor-records.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
@@ -252,7 +252,7 @@ export class HotlineQaStack extends cdk.Stack {
     const manageCounselorProfilesFunction = new lambdaNodejs.NodejsFunction(this, 'ManageCounselorProfilesFunction', {
       entry: path.join(__dirname, '../src/functions/manage-counselor-profiles.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         COUNSELOR_PROFILES_TABLE: this.counselorProfilesTable.tableName,
@@ -265,7 +265,7 @@ export class HotlineQaStack extends cdk.Stack {
     const generatePresignedUrlFunction = new lambdaNodejs.NodejsFunction(this, 'GeneratePresignedUrlFunction', {
       entry: path.join(__dirname, '../src/functions/generate-presigned-url.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
@@ -277,7 +277,7 @@ export class HotlineQaStack extends cdk.Stack {
     const getResultsFunction = new lambdaNodejs.NodejsFunction(this, 'GetResultsFunction', {
       entry: path.join(__dirname, '../src/functions/get-results.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
@@ -289,7 +289,7 @@ export class HotlineQaStack extends cdk.Stack {
     const getCounselorDataFunction = new lambdaNodejs.NodejsFunction(this, 'GetCounselorDataFunction', {
       entry: path.join(__dirname, '../src/functions/get-counselor-data.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         EVALUATIONS_TABLE: this.counselorEvaluationsTable.tableName,
@@ -301,7 +301,7 @@ export class HotlineQaStack extends cdk.Stack {
     const getAnalysisResultsFunction = new lambdaNodejs.NodejsFunction(this, 'GetAnalysisResultsFunction', {
       entry: path.join(__dirname, '../src/functions/get-analysis-results.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
@@ -313,7 +313,7 @@ export class HotlineQaStack extends cdk.Stack {
     const checkExecutionStatusFunction = new lambdaNodejs.NodejsFunction(this, 'CheckExecutionStatusFunction', {
       entry: path.join(__dirname, '../src/functions/check-execution-status.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       environment: {
         STATE_MACHINE_ARN: '', // Will be set after state machine is created
@@ -473,7 +473,6 @@ export class HotlineQaStack extends cdk.Stack {
           'Content-Type',
           'X-Amz-Date',
           'Authorization',
-          'X-Api-Key',
           'X-Amz-Security-Token'
         ],
       },

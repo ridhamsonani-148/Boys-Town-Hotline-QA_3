@@ -2,11 +2,12 @@ version: 0.2
 
 # Boys Town Hotline QA - Simplified CodeBuild Deployment
 # This buildspec works with the deploy.sh script
+# Security Note: Sensitive information like GitHub tokens and AWS account details are redacted from CloudWatch logs
 
 phases:
   install:
     runtime-versions:
-      nodejs: 18
+      nodejs: 20
     commands:
       - echo "🚀 Boys Town Hotline QA Deployment Started"
       - echo "Installing AWS CDK CLI..."
@@ -18,13 +19,13 @@ phases:
     commands:
       - echo "📋 Pre-build phase started on $(date)"
       - echo "Checking AWS CLI configuration..."
-      - aws sts get-caller-identity
+      - aws sts get-caller-identity --query 'Account' --output text > /dev/null 2>&1 && echo "✅ AWS CLI configured" || (echo "❌ AWS CLI not configured" && exit 1)
       - echo ""
       - echo "📋 Environment Configuration:"
       - echo "COMPANY_NAME:$COMPANY_NAME"
       - echo "GITHUB_OWNER:$GITHUB_OWNER"
       - echo "GITHUB_REPO:$GITHUB_REPO"
-      - echo "GITHUB_TOKEN_SECRET:$GITHUB_TOKEN_SECRET"
+      - echo "GITHUB_TOKEN_SECRET:[REDACTED]"
       - echo "AWS_REGION:$AWS_REGION"
       - echo "ACTION:$ACTION"
       - echo ""
@@ -37,7 +38,7 @@ phases:
       - echo "🏗️  Build phase started on $(date)"
       - echo "Setting up CDK environment..."
       - ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-      - echo "Account:$ACCOUNT, Region:$AWS_REGION"
+      - echo "Account:[REDACTED], Region:$AWS_REGION"
       
       - echo "🔧 Checking CDK bootstrap status..."
       - |
@@ -51,7 +52,7 @@ phases:
       - echo "🔐 Validating GitHub token secret..."
       - |
         if ! aws secretsmanager describe-secret --secret-id "$GITHUB_TOKEN_SECRET" --region "$AWS_REGION" > /dev/null 2>&1; then
-          echo "❌ ERROR: GitHub token secret '$GITHUB_TOKEN_SECRET' not found"
+          echo "❌ ERROR: GitHub token secret not found"
           echo "This should have been created by the deploy.sh script"
           exit 1
         fi
@@ -102,6 +103,7 @@ phases:
           echo "======================"
           echo ""
           echo "🔗 CloudFormation Stack Outputs:"
+          echo "Note: The following outputs contain deployment URLs and endpoints"
           aws cloudformation describe-stacks \
             --stack-name HotlineQaStack-prod \
             --region $AWS_REGION \

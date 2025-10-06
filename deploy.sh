@@ -6,6 +6,7 @@ export AWS_PAGER=""
 
 # Boys Town Hotline QA - Simplified CodeBuild Deployment
 # This script creates everything needed and deploys directly from AWS CLI/CloudShell
+# Security Note: Sensitive information like GitHub tokens and AWS account details are redacted from logs
 
 echo "🚀 Boys Town Hotline QA - Simplified Deployment"
 echo "================================================"
@@ -34,8 +35,8 @@ else
   echo "Unable to parse owner/repo from '$GITHUB_URL'"
   read -rp "Enter GitHub owner manually: " GITHUB_OWNER
   read -rp "Enter GitHub repo manually: " GITHUB_REPO
-  echo "→ Using GITHUB_OWNER=$GITHUB_OWNER"
-  echo "→ Using GITHUB_REPO=$GITHUB_REPO"
+  echo "→ Using GITHUB_OWNER=[CONFIGURED]"
+  echo "→ Using GITHUB_REPO=[CONFIGURED]"
 fi
 
 if [ -z "${GITHUB_OWNER:-}" ]; then
@@ -56,8 +57,8 @@ if [[ "$CONFIRM" != "y" && "$CONFIRM" != "yes" ]]; then
   read -rp "Enter GitHub repo manually: " GITHUB_REPO
 fi
 
-echo "→ Final GITHUB_OWNER=$GITHUB_OWNER"
-echo "→ Final GITHUB_REPO=$GITHUB_REPO"
+echo "→ Final GITHUB_OWNER=[CONFIGURED]"
+echo "→ Final GITHUB_REPO=[CONFIGURED]"
 
 # 2) Project name for unique resource naming
 if [ -z "${COMPANY_NAME:-}" ]; then
@@ -99,8 +100,8 @@ fi
 echo ""
 echo "📋 Configuration Summary:"
 echo "========================="
-echo "GitHub Owner: $GITHUB_OWNER"
-echo "GitHub Repo: $GITHUB_REPO"
+echo "GitHub Owner: [CONFIGURED]"
+echo "GitHub Repo: [CONFIGURED]"
 echo "Company Name: $COMPANY_NAME"
 echo "AWS Region: $AWS_REGION"
 echo "Action: $ACTION"
@@ -128,7 +129,7 @@ if ! aws sts get-caller-identity >/dev/null 2>&1; then
 fi
 
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-echo "✅ AWS Account: $ACCOUNT"
+echo "✅ AWS Account: [REDACTED]"
 echo "✅ AWS Region: $AWS_REGION"
 
 # --------------------------------------------------
@@ -141,19 +142,19 @@ echo "🔐 Setting up GitHub token in Secrets Manager..."
 SECRET_NAME="${COMPANY_NAME}-github-token-prod"
 
 if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
-  echo "⚠️  Secret '$SECRET_NAME' already exists, updating..."
+  echo "⚠️  Secret already exists, updating..."
   aws secretsmanager update-secret \
     --secret-id "$SECRET_NAME" \
     --secret-string "$GITHUB_TOKEN" \
     --region "$AWS_REGION" \
-    --description "GitHub token for $COMPANY_NAME Boys Town Hotline QA deployment"
+    --description "GitHub token for $COMPANY_NAME Boys Town Hotline QA deployment" >/dev/null 2>&1
 else
   echo "🔐 Creating new secret..."
   aws secretsmanager create-secret \
     --name "$SECRET_NAME" \
     --description "GitHub token for $COMPANY_NAME Boys Town Hotline QA deployment" \
     --secret-string "$GITHUB_TOKEN" \
-    --region "$AWS_REGION"
+    --region "$AWS_REGION" >/dev/null 2>&1
 fi
 echo "✅ GitHub token configured"
 
@@ -342,10 +343,11 @@ echo "✅ CodeBuild project configured successfully"
 echo ""
 echo "🔐 Setting up CodeBuild GitHub authentication..."
 
-aws codebuild import-source-credentials \
+# Import GitHub credentials securely without logging token
+echo "$GITHUB_TOKEN" | aws codebuild import-source-credentials \
   --server-type GITHUB \
   --auth-type PERSONAL_ACCESS_TOKEN \
-  --token "$GITHUB_TOKEN" \
+  --token file:///dev/stdin \
   --region "$AWS_REGION" >/dev/null 2>&1 || echo "Note: GitHub credentials may already be imported"
 
 echo "✅ GitHub authentication configured"
@@ -392,6 +394,7 @@ if [ -n "$BUILD_ID" ]; then
           
           # Get CloudFormation outputs
           echo "🔗 CloudFormation Stack Outputs:"
+          echo "Note: The following outputs contain deployment URLs and endpoints"
           aws cloudformation describe-stacks \
             --stack-name "HotlineQaStack-prod" \
             --region "$AWS_REGION" \

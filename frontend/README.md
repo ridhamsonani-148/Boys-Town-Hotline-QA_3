@@ -13,9 +13,8 @@ The application uses environment variables for configuration. These are stored i
 # AWS API Gateway Configuration
 REACT_APP_API_URL=https://your-api-id.execute-api.your-region.amazonaws.com/stage
 
-# AWS Authentication
+# AWS Configuration
 REACT_APP_AWS_REGION=us-east-1
-REACT_APP_AWS_API_KEY=your-api-key-here
 
 # File Upload Settings
 REACT_APP_MAX_FILE_SIZE=10485760  # 10MB in bytes

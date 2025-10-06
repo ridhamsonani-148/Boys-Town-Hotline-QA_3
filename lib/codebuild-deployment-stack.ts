@@ -138,7 +138,7 @@ export class CodeBuildDeploymentStack extends cdk.Stack {
         phases: {
           install: {
             'runtime-versions': {
-              nodejs: '18'
+              nodejs: '20'
             },
             commands: [
               'echo "Installing dependencies..."',
@@ -150,14 +150,14 @@ export class CodeBuildDeploymentStack extends cdk.Stack {
             commands: [
               'echo "Pre-build phase started on `date`"',
               'echo "Checking AWS CLI configuration..."',
-              'aws sts get-caller-identity',
+              'aws sts get-caller-identity --query Account --output text > /dev/null 2>&1 && echo "✅ AWS CLI configured" || (echo "❌ AWS CLI not configured" && exit 1)',
               'echo "Environment variables:"',
               'echo "ENV_NAME=${ENV_NAME:-dev}"',
               'echo "BUCKET_PREFIX=${BUCKET_PREFIX:-boys-town-hotline-qa}"',
               'echo "DEPLOY_FRONTEND=${DEPLOY_FRONTEND:-true}"',
-              'echo "GITHUB_OWNER=${GITHUB_OWNER}"',
-              'echo "GITHUB_REPO=${GITHUB_REPO}"',
-              'echo "GITHUB_TOKEN_SECRET=${GITHUB_TOKEN_SECRET}"'
+              'echo "GITHUB_OWNER=[CONFIGURED]"',
+              'echo "GITHUB_REPO=[CONFIGURED]"',
+              'echo "GITHUB_TOKEN_SECRET=[REDACTED]"'
             ]
           },
           build: {
