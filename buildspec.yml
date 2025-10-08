@@ -11,9 +11,9 @@ phases:
     commands:
       - echo "🚀 Boys Town Hotline QA Deployment Started"
       - echo "Installing AWS CDK CLI..."
-      - npm install -g aws-cdk@2.87.0
+      - npm install -g aws-cdk@latest
       - echo "Installing project dependencies..."
-      - npm ci
+      - npm install
 
   pre_build:
     commands:
