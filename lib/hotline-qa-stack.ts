@@ -326,7 +326,6 @@ export class HotlineQaStack extends cdk.Stack {
       actions: [
         'transcribe:StartCallAnalyticsJob',
         'transcribe:GetCallAnalyticsJob',
-        'iam:PassRole',
       ],
       resources: ['*'],
     }));
@@ -345,12 +344,14 @@ export class HotlineQaStack extends cdk.Stack {
       resources: ['*'],
     }));
 
+    const bedrockModelArn = `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/amazon.nova-pro-v1:0`;
+
     // Grant LLM analysis function permission to use Bedrock
     analyzeLLMFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'bedrock:InvokeModel',
       ],
-      resources: ['*'], // You can scope this down to specific model ARNs if needed
+      resources: [bedrockModelArn], // You can scope this down to specific model ARNs if needed
     }));
 
     // Grant Lambda access to S3
