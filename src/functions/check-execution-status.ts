@@ -8,7 +8,37 @@ if (!STATE_MACHINE_ARN) {
   throw new Error('Required environment variable STATE_MACHINE_ARN must be set');
 }
 
-// Updated IAM permissions to fix access issues
+// Input validation functions
+function validateFileName(fileName: string): string {
+  if (!fileName || typeof fileName !== 'string') {
+    throw new Error('fileName must be a string');
+  }
+  
+  const sanitized = fileName.replace(/[^a-zA-Z0-9_.-]/g, '');
+  
+  if (sanitized.length === 0) {
+    throw new Error('Invalid fileName format');
+  }
+  
+  if (sanitized.length > 100) {
+    throw new Error('fileName must be less than 100 characters');
+  }
+  
+  return sanitized;
+}
+
+function validateExecutionArn(executionArn: string): string {
+  if (!executionArn || typeof executionArn !== 'string') {
+    throw new Error('executionArn must be a string');
+  }
+  
+  // Basic validation for AWS ARN format
+  if (!executionArn.startsWith('arn:aws:states:') || executionArn.split(':').length < 7) {
+    throw new Error('Invalid executionArn format');
+  }
+  
+  return executionArn;
+}
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
@@ -54,35 +84,56 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // If fileName is provided, find the execution for that file
     if (fileName && !executionArn) {
-      console.log(`Looking for execution for file: ${fileName}`);
-      
-      const listCommand = new ListExecutionsCommand({
-        stateMachineArn: STATE_MACHINE_ARN,
-        maxResults: 50 // Get recent executions
-      });
+      try {
+        const validatedFileName = validateFileName(fileName);
+        console.log(`Looking for execution for file: ${validatedFileName}`);
+        
+        const listCommand = new ListExecutionsCommand({
+          stateMachineArn: STATE_MACHINE_ARN,
+          maxResults: 50 // Get recent executions
+        });
 
-      const listResponse = await sfnClient.send(listCommand);
-      
-      // Find execution that matches the fileName
-      const matchingExecution = listResponse.executions?.find(execution => {
-        // The execution name typically contains the file name or we can check the input
-        return execution.name?.includes(fileName.replace('.wav', '')) || 
-               execution.name?.includes(fileName);
-      });
+        const listResponse = await sfnClient.send(listCommand);
+        
+        // Find execution that matches the fileName
+        const matchingExecution = listResponse.executions?.find(execution => {
+          // The execution name typically contains the file name or we can check the input
+          return execution.name?.includes(validatedFileName.replace('.wav', '')) || 
+                 execution.name?.includes(validatedFileName);
+        });
 
-      if (!matchingExecution) {
+        if (!matchingExecution) {
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ 
+              error: 'No execution found for the specified file',
+              fileName: validatedFileName,
+              status: 'NOT_FOUND'
+            })
+          };
+        }
+
+        targetExecutionArn = matchingExecution.executionArn;
+      } catch (validationError) {
         return {
-          statusCode: 404,
+          statusCode: 400,
           headers,
-          body: JSON.stringify({ 
-            error: 'No execution found for the specified file',
-            fileName,
-            status: 'NOT_FOUND'
-          })
+          body: JSON.stringify({ error: validationError instanceof Error ? validationError.message : 'Invalid fileName' })
         };
       }
+    }
 
-      targetExecutionArn = matchingExecution.executionArn;
+    if (executionArn) {
+      try {
+        targetExecutionArn = validateExecutionArn(executionArn);
+      } catch (validationError) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: validationError instanceof Error ? validationError.message : 'Invalid executionArn' })
+        };
+      }
     }
 
     // Get detailed execution status

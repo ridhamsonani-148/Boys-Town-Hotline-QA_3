@@ -31,6 +31,63 @@ interface CounselorWithEvaluations extends CounselorProfile {
   LastEvaluationDate?: string;
 }
 
+function validateCounselorId(counselorId: string): string {
+  if (!counselorId || typeof counselorId !== 'string') {
+    throw new Error('CounselorId is required and must be a string');
+  }
+  
+  // Only allow alphanumeric, underscore, and hyphen
+  const sanitized = counselorId.replace(/[^a-zA-Z0-9_-]/g, '');
+  if (sanitized.length < 2 || sanitized.length > 50) {
+    throw new Error('CounselorId must be between 2 and 50 characters');
+  }
+  
+  return sanitized;
+}
+
+function validateCounselorName(counselorName: string): string {
+  if (!counselorName || typeof counselorName !== 'string') {
+    throw new Error('CounselorName is required and must be a string');
+  }
+  
+  // Allow letters, spaces, hyphens, and apostrophes
+  const sanitized = counselorName.replace(/[^a-zA-Z\s'-]/g, '').trim();
+  if (sanitized.length < 2 || sanitized.length > 100) {
+    throw new Error('CounselorName must be between 2 and 100 characters');
+  }
+  
+  return sanitized;
+}
+
+function validateProgramType(programType: any): string[] {
+  if (!programType) {
+    return ['National Hotline Program'];
+  }
+  
+  if (!Array.isArray(programType)) {
+    throw new Error('ProgramType must be an array');
+  }
+  
+  const validPrograms = ['National Hotline Program', '988 Nebraska', 'Other Program'];
+  const sanitizedPrograms = programType
+    .filter((program: any) => typeof program === 'string')
+    .map((program: string) => program.slice(0, 50).replace(/[<>]/g, ''))
+    .filter((program: string) => validPrograms.includes(program) || program.length > 0);
+  
+  return sanitizedPrograms.length > 0 ? sanitizedPrograms : ['National Hotline Program'];
+}
+
+function validateBoolean(value: any, fieldName: string): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+  throw new Error(`${fieldName} must be a boolean value`);
+}
+
+
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
   
@@ -176,15 +233,10 @@ async function getAllCounselorProfiles(headers: any): Promise<APIGatewayProxyRes
 
 async function createCounselorProfile(data: any, headers: any): Promise<APIGatewayProxyResult> {
   try {
-    const { counselorId, counselorName, programType } = data;
-
-    if (!counselorId || !counselorName) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'counselorId and counselorName are required' })
-      };
-    }
+    // Validate and sanitize input
+    const counselorId = validateCounselorId(data.counselorId);
+    const counselorName = validateCounselorName(data.counselorName);
+    const programType = validateProgramType(data.programType);
 
     // Check if profile already exists
     const existingProfile = await dynamoClient.send(new GetItemCommand({
@@ -203,7 +255,7 @@ async function createCounselorProfile(data: any, headers: any): Promise<APIGatew
     const profile: CounselorProfile = {
       CounselorId: counselorId,
       CounselorName: counselorName,
-      ProgramType: programType || ['National Hotline Program'],
+      ProgramType: programType,
       IsActive: true,
       CreatedDate: new Date().toISOString(),
       LastUpdated: new Date().toISOString(),
@@ -224,35 +276,48 @@ async function createCounselorProfile(data: any, headers: any): Promise<APIGatew
     };
   } catch (error) {
     console.error('Error creating counselor profile:', error);
+    
+    if (error instanceof Error && error.message.includes('must be')) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: error.message })
+      };
+    }
+    
     throw error;
   }
 }
 
 async function updateCounselorProfile(counselorId: string, data: any, headers: any): Promise<APIGatewayProxyResult> {
   try {
-    const { counselorName, programType, isActive } = data;
+    // Validate counselorId first
+    const validatedCounselorId = validateCounselorId(counselorId);
 
-    // Build update expression dynamically
+    // Build update expression dynamically with validation
     const updateExpressions: string[] = [];
     const expressionAttributeValues: any = {};
     const expressionAttributeNames: any = {};
 
-    if (counselorName !== undefined) {
+    if (data.counselorName !== undefined) {
+      const validatedName = validateCounselorName(data.counselorName);
       updateExpressions.push('#cn = :counselorName');
       expressionAttributeNames['#cn'] = 'CounselorName';
-      expressionAttributeValues[':counselorName'] = counselorName;
+      expressionAttributeValues[':counselorName'] = validatedName;
     }
 
-    if (programType !== undefined) {
+    if (data.programType !== undefined) {
+      const validatedProgramType = validateProgramType(data.programType);
       updateExpressions.push('#pt = :programType');
       expressionAttributeNames['#pt'] = 'ProgramType';
-      expressionAttributeValues[':programType'] = programType;
+      expressionAttributeValues[':programType'] = validatedProgramType;
     }
 
-    if (isActive !== undefined) {
+    if (data.isActive !== undefined) {
+      const validatedIsActive = validateBoolean(data.isActive, 'IsActive');
       updateExpressions.push('#ia = :isActive');
       expressionAttributeNames['#ia'] = 'IsActive';
-      expressionAttributeValues[':isActive'] = isActive;
+      expressionAttributeValues[':isActive'] = validatedIsActive;
     }
 
     // Always update LastUpdated
@@ -274,7 +339,7 @@ async function updateCounselorProfile(counselorId: string, data: any, headers: a
 
     const updateCommand = new UpdateItemCommand({
       TableName: COUNSELOR_PROFILES_TABLE,
-      Key: marshall({ CounselorId: counselorId }),
+      Key: marshall({ CounselorId: validatedCounselorId }),
       UpdateExpression: `SET ${updateExpressions.join(', ')}`,
       ExpressionAttributeNames: expressionAttributeNames,
       ExpressionAttributeValues: marshall(expressionAttributeValues),
@@ -300,6 +365,15 @@ async function updateCounselorProfile(counselorId: string, data: any, headers: a
     };
   } catch (error) {
     console.error('Error updating counselor profile:', error);
+    
+    if (error instanceof Error && error.message.includes('must be')) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: error.message })
+      };
+    }
+    
     throw error;
   }
 }
