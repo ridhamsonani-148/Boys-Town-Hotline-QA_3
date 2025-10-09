@@ -1,22 +1,23 @@
 import { 
   S3Client, 
-  GetObjectCommand 
+  GetObjectCommand, 
+  HeadObjectCommand
 } from '@aws-sdk/client-s3';
 import {
   DynamoDBClient,
   PutItemCommand,
   GetItemCommand
 } from '@aws-sdk/client-dynamodb';
-import { marshall } from '@aws-sdk/util-dynamodb';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import * as path from 'path';
 
 const s3Client = new S3Client({});
 const dynamoClient = new DynamoDBClient({});
 
-const { BUCKET_NAME, TABLE_NAME, COUNSELOR_PROFILES_TABLE } = process.env;
+const { BUCKET_NAME, TABLE_NAME, COUNSELOR_PROFILES_TABLE, FILE_MAPPING_TABLE } = process.env;
 
-if (!BUCKET_NAME || !TABLE_NAME || !COUNSELOR_PROFILES_TABLE) {
-  throw new Error('Required environment variables BUCKET_NAME, TABLE_NAME, and COUNSELOR_PROFILES_TABLE must be set');
+if (!BUCKET_NAME || !TABLE_NAME || !COUNSELOR_PROFILES_TABLE || !FILE_MAPPING_TABLE) {
+  throw new Error('Required environment variables BUCKET_NAME, TABLE_NAME, COUNSELOR_PROFILES_TABLE, and FILE_MAPPING_TABLE must be set');
 }
 
 // Input from Step Functions
@@ -31,6 +32,7 @@ interface StepFunctionsEvent {
   aggregatedKey: string;
   counselorId?: string;
   counselorName?: string;
+  fileId?: string;
 }
 
 interface AggregatedScores {
@@ -148,6 +150,7 @@ interface EvaluationItem {
   EvaluationId: string;
   CounselorName: string;
   AudioFileName: string;
+  FileId?: string;
   EvaluationDate: string;
   CategoryScores: {
     RapportSkills: number;
@@ -167,6 +170,7 @@ function validateEvaluationItem(item: any): EvaluationItem {
     EvaluationId,
     CounselorName,
     AudioFileName,
+    FileId,
     EvaluationDate,
     CategoryScores,
     TotalScore,
@@ -241,6 +245,9 @@ function validateEvaluationItem(item: any): EvaluationItem {
     Criteria: Criteria.slice(0, 500).replace(/[<>]/g, ''),
     S3ResultPath: S3ResultPath.slice(0, 500)
   };
+  if (FileId) {
+    sanitizedItem.FileId = FileId.replace(/[^a-zA-Z0-9_-]/g, '');
+  }
 
   return sanitizedItem;
 }
@@ -311,14 +318,35 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
       // Parse the aggregated scores
       const aggregatedScores: AggregatedScores = JSON.parse(body);
       
-      // Extract counselor name from the filename
-      // Expected format: FirstName_LastName_UniqueNumbers.wav
+      // Extract fileId from the aggregatedKey
+      // aggregatedKey format: results/aggregated_<fileId>.json
+      const fileId = fileNameWithoutExt; // Now fileNameWithoutExt is the UUID
+      
+      console.log(`Processing fileId: ${fileId}`);
+
+      // Get original filename and counselor info from file mapping table
       let counselorId = 'unknown';
       let counselorName = 'Unknown Counselor';
+      let originalFileName = 'unknown.wav';
       
       try {
-        if (fileNameWithoutExt) {
-          const fileNameParts = fileNameWithoutExt.split('_');
+        // Get file mapping from DynamoDB
+        const getMappingCommand = new GetItemCommand({
+          TableName: FILE_MAPPING_TABLE,
+          Key: marshall({ FileId: fileId })
+        });
+
+        const mappingResponse = await dynamoClient.send(getMappingCommand);
+        
+        if (mappingResponse.Item) {
+          const mapping = unmarshall(mappingResponse.Item);
+          originalFileName = mapping.OriginalFileName;
+          
+          console.log(`Retrieved file mapping - Original: ${originalFileName}, FileId: ${fileId}`);
+          
+          // Extract counselor name from original filename
+          // Expected format: FirstName_LastName_UniqueNumbers.wav
+          const fileNameParts = originalFileName.replace('.wav', '').split('_');
           
           if (fileNameParts.length >= 2) {
             const firstName = fileNameParts[0];
@@ -333,13 +361,46 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
             
             console.log(`Extracted counselor info - ID: ${counselorId}, Name: ${counselorName}`);
           } else {
-            console.warn(`Filename does not match expected format: ${fileNameWithoutExt}`);
+            console.warn(`Original filename does not match expected format: ${originalFileName}`);
           }
         } else {
-          console.warn('fileNameWithoutExt is undefined or empty');
+          console.warn(`No file mapping found for fileId: ${fileId}`);
+          
+          // Fallback: Try to get original filename from S3 metadata
+          try {
+            const s3Key = `records/${fileId}.wav`;
+            const headCommand = new HeadObjectCommand({
+              Bucket: bucket,
+              Key: s3Key
+            });
+            
+            const headResponse = await s3Client.send(headCommand);
+            const metadata = headResponse.Metadata;
+            
+            if (metadata && metadata['original-filename']) {
+              originalFileName = Buffer.from(metadata['original-filename'], 'base64').toString();
+              console.log(`Retrieved original filename from S3 metadata: ${originalFileName}`);
+              
+              // Extract counselor name from original filename
+              const fileNameParts = originalFileName.replace('.wav', '').split('_');
+              
+              if (fileNameParts.length >= 2) {
+                const firstName = fileNameParts[0];
+                const lastName = fileNameParts[1];
+                counselorId = `${firstName.toLowerCase()}_${lastName.toLowerCase()}`;
+                counselorName = `${firstName} ${lastName}`;
+                
+                const validatedCounselorInfo = validateCounselorInfo(counselorId, counselorName);
+                counselorId = validatedCounselorInfo.counselorId;
+                counselorName = validatedCounselorInfo.counselorName;
+              }
+            }
+          } catch (metadataError) {
+            console.error('Error retrieving S3 metadata:', metadataError);
+          }
         }
-      } catch (error) {
-        console.error(`Error extracting counselor name from filename: ${fileNameWithoutExt}`, error);
+      } catch (mappingError) {
+        console.error(`Error retrieving file mapping for ${fileId}:`, mappingError);
         // Continue with default values but validate them
         const validatedCounselorInfo = validateCounselorInfo(counselorId, counselorName);
         counselorId = validatedCounselorInfo.counselorId;
@@ -360,7 +421,8 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
         CounselorId: counselorId,
         EvaluationId: evaluationId,
         CounselorName: counselorName,
-        AudioFileName: fileName,
+        AudioFileName: originalFileName, // Use original filename for display
+        FileId: fileId, // Store fileId for reference
         EvaluationDate: evaluationDate,
         CategoryScores: {
           RapportSkills: aggregatedScores.categories['RAPPORT SKILLS']?.multipliedScore || 0,
@@ -377,7 +439,8 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
       // Save the item to DynamoDB
       const putCommand = new PutItemCommand({
         TableName: TABLE_NAME,
-        Item: marshall(item)
+        Item: marshall(item),
+        ConditionExpression: 'attribute_not_exists(CounselorId) AND attribute_not_exists(EvaluationId)'
       });
       
       await dynamoClient.send(putCommand);
@@ -387,7 +450,8 @@ export const handler = async (event: StepFunctionsEvent): Promise<StepFunctionsE
       return {
         ...event,
         counselorId,
-        counselorName
+        counselorName,
+        fileId
       };
     } catch (error) {
       console.error(`Error updating counselor records for ${aggregatedKey}:`, error);

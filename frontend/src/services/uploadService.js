@@ -26,8 +26,9 @@ export const uploadService = {
         throw new Error(`Failed to get presigned URL with status: ${urlResponse.status}`);
       }
       
-      const { uploadUrl } = await urlResponse.json();
+      const { uploadUrl, fileId, originalFileName } = await urlResponse.json();
       onProgress?.(30);
+      console.log(`Generated presigned URL for fileId: ${fileId}, original: ${originalFileName}`);
       
       // Upload file to S3 with progress simulation
       return new Promise((resolve, reject) => {
@@ -47,12 +48,18 @@ export const uploadService = {
             
             // Notify the analysis container that processing has started
             console.log('Upload completed, notifying processing status');
-            this.statusChangeCallback?.('processing', { fileName: file.name });
+            this.statusChangeCallback?.('processing', { 
+              fileId: fileId, 
+              originalFileName: originalFileName 
+              });
             
             // Start polling for execution status
-            this.pollExecutionStatus(file.name, onProgress, onStatusChange);
+            this.pollExecutionStatus(fileId, originalFileName, onProgress, onStatusChange);
             
-            resolve({ success: true, fileName: file.name, fileSize: file.size });
+            resolve({ success: true,
+              fileId: fileId,
+              originalFileName: originalFileName,
+              fileSize: file.size });
           } else {
             reject(new Error(`Failed to upload file with status: ${xhr.status}`));
           }
@@ -72,7 +79,7 @@ export const uploadService = {
   },
 
   // Poll execution status until completion
-  async pollExecutionStatus(fileName, onProgress, onStatusChange) {
+  async pollExecutionStatus(fileId, originalFileName, onProgress, onStatusChange) {
     const maxAttempts = 60; // 5 minutes max (5 second intervals)
     let attempts = 0;
     
@@ -80,7 +87,7 @@ export const uploadService = {
       try {
         attempts++;
         
-        const response = await fetch(`${API_BASE_URL}execution-status?fileName=${encodeURIComponent(fileName)}`);
+        const response = await fetch(`${API_BASE_URL}execution-status?fileId=${encodeURIComponent(fileId)}`);
         
         if (response.ok) {
           const status = await response.json();
@@ -91,19 +98,29 @@ export const uploadService = {
               onProgress?.(100);
               // Get the final results
               try {
-                const results = await this.getResults(fileName);
+                const results = await this.getResults(fileId);
                 console.log('Processing completed, notifying completion status');
                 onStatusChange?.('completed', results);
-                this.statusChangeCallback?.('completed', { ...results, fileName });
+                this.statusChangeCallback?.('completed', { 
+                  ...results,
+                  fileId: fileId,
+                  originalFileName: originalFileName
+                });
               } catch (error) {
                 console.error('Error getting results after completion:', error);
                 onStatusChange?.('completed', null);
-                this.statusChangeCallback?.('completed', { fileName });
+                this.statusChangeCallback?.('completed', { 
+                  fileId: fileId,
+                  originalFileName: originalFileName
+                 });
               }
             } else {
               console.log('Processing failed, notifying failure status');
               onStatusChange?.('failed', { error: status.error || 'Processing failed' });
-              this.statusChangeCallback?.('failed', { error: status.error || 'Processing failed', fileName });
+              this.statusChangeCallback?.('failed', { error: status.error || 'Processing failed', 
+                fileId: fileId,
+                originalFileName: originalFileName 
+               });
             }
             return; // Stop polling
           }
@@ -128,10 +145,17 @@ export const uploadService = {
           try {
             const results = await this.getResults(fileName);
             onStatusChange?.('completed', results);
-            this.statusChangeCallback?.('completed', { ...results, fileName });
+            this.statusChangeCallback?.('completed', { 
+              ...results, 
+              fileId: fileId,
+              originalFileName: originalFileName 
+             });
           } catch (error) {
             onStatusChange?.('timeout', null);
-            this.statusChangeCallback?.('timeout', { fileName });
+            this.statusChangeCallback?.('timeout', { 
+              fileId: fileId,
+              originalFileName: originalFileName 
+             });
           }
         }
         
@@ -143,7 +167,10 @@ export const uploadService = {
           setTimeout(poll, 5000); // Continue polling despite error
         } else {
           onStatusChange?.('error', { error: error.message });
-          this.statusChangeCallback?.('error', { error: error.message, fileName });
+          this.statusChangeCallback?.('error', { error: error.message,
+            fileId: fileId,
+            originalFileName: originalFileName
+           });
         }
       }
     };
@@ -153,9 +180,9 @@ export const uploadService = {
   },
 
   // Get results from API
-  async getResults(originalFileName) {
-    const fileName = `aggregated_${originalFileName.replace('.wav', '')}.json`;
-    //console.log(`Fetching results for fileName: ${fileName}`);
+  async getResults(fileId) {
+    const fileName = `aggregated_${fileId}.json`;
+    console.log(`Fetching results for fileId: ${fileId}, fileName: ${fileName}`);
     
     try {
       const response = await fetch(`${API_BASE_URL}get-results?fileName=${encodeURIComponent(fileName)}`);
@@ -165,7 +192,7 @@ export const uploadService = {
       }
       
       const results = await response.json();
-      //console.log('Results retrieved successfully:', results);
+      console.log('Results retrieved successfully:', results);
       return results;
     } catch (error) {
       console.error('Error fetching results:', error.message);
@@ -204,12 +231,12 @@ export const uploadService = {
 
   // Simulate upload progress (for demo purposes)
   simulateUpload(file, onProgress) {
-    //console.log(`Simulating upload for file: ${file.name} (${file.size} bytes)`);
+    console.log(`Simulating upload for file: ${file.name} (${file.size} bytes)`);
     return new Promise((resolve) => {
       let progress = 0;
       const interval = setInterval(() => {
         progress += 10;
-        //console.log(`Upload progress: ${progress}%`);
+        console.log(`Upload progress: ${progress}%`);
         onProgress(progress);
         
         if (progress >= 100) {
@@ -217,10 +244,10 @@ export const uploadService = {
           const result = {
             success: true,
             fileId: Date.now().toString(),
-            fileName: file.name,
+            originalFileName: file.name,
             fileSize: file.size
           };
-          //console.log('Simulated upload complete:', result);
+          console.log('Simulated upload complete:', result);
           resolve(result);
         }
       }, 200);

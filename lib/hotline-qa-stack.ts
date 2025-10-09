@@ -155,6 +155,24 @@ export class HotlineQaStack extends cdk.Stack {
       sortKey: { name: 'CounselorName', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
     });
+
+    // Create DynamoDB table for file mappings (UUID to original filename mapping)
+    const fileMappingsTable = new dynamodb.Table(this, 'FileMappingsTable', {
+      tableName: `${bucketNamePrefix}-file-mappings-${envName}-${accountId}`,
+      partitionKey: { name: 'FileId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecovery: true,
+      timeToLiveAttribute: 'ExpirationTime',
+    });
+
+    // Add Global Secondary Index for querying by original filename
+    fileMappingsTable.addGlobalSecondaryIndex({
+      indexName: 'OriginalFileNameIndex',
+      partitionKey: { name: 'OriginalFileName', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'UploadTime', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
     
     
     // Create IAM role for Transcribe with proper permissions
@@ -244,6 +262,7 @@ export class HotlineQaStack extends cdk.Stack {
         BUCKET_NAME: this.storageBucket.bucketName,
         TABLE_NAME: this.counselorEvaluationsTable.tableName,
         COUNSELOR_PROFILES_TABLE: this.counselorProfilesTable.tableName,
+        FILE_MAPPING_TABLE: fileMappingsTable.tableName,
       },
       description: 'Updates counselor evaluation records in DynamoDB',
     });
@@ -269,6 +288,7 @@ export class HotlineQaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
+        FILE_MAPPING_TABLE: fileMappingsTable.tableName
       },
       description: 'Generates presigned URLs for S3 file uploads',
     });
@@ -371,6 +391,10 @@ export class HotlineQaStack extends cdk.Stack {
     this.counselorProfilesTable.grantReadWriteData(manageCounselorProfilesFunction);
     this.counselorEvaluationsTable.grantReadData(manageCounselorProfilesFunction);
     this.counselorEvaluationsTable.grantReadData(getCounselorDataFunction);
+
+    // Grant generate presigned URL function access to file mappings table
+    fileMappingsTable.grantReadWriteData(generatePresignedUrlFunction); 
+    fileMappingsTable.grantReadData(updateCounselorRecordsFunction);
     
     // Create Step Functions tasks
     const startTranscribeTask = new tasks.LambdaInvoke(this, 'StartTranscribeJob', {
@@ -678,6 +702,11 @@ export class HotlineQaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CounselorProfilesTableName', {
       value: this.counselorProfilesTable.tableName,
       description: 'Name of the DynamoDB table for counselor profiles/metadata',
+    });
+
+    new cdk.CfnOutput(this, 'FileMappingsTableName', {
+      value: fileMappingsTable.tableName,
+      description: 'Name of the DynamoDB table for file UUID mappings',
     });
     
     // Output the state machine ARN for reference

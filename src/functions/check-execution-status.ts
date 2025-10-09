@@ -9,6 +9,20 @@ if (!STATE_MACHINE_ARN) {
 }
 
 // Input validation functions
+function validateFileId(fileId: string): string {
+  if (!fileId || typeof fileId !== 'string') {
+    throw new Error('fileId must be a string');
+  }
+
+  // UUID validation pattern
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(fileId)) {
+    throw new Error('Invalid fileId format - must be a valid UUID');
+  }
+  
+  return fileId;
+}
+
 function validateFileName(fileName: string): string {
   if (!fileName || typeof fileName !== 'string') {
     throw new Error('fileName must be a string');
@@ -68,25 +82,26 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const fileName = event.queryStringParameters?.fileName;
+    const fileId = event.queryStringParameters?.fileId;
     const executionArn = event.queryStringParameters?.executionArn;
 
-    if (!fileName && !executionArn) {
+    if (!fileName && !fileId && !executionArn) {
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({ 
-          error: 'Either fileName or executionArn query parameter is required' 
+          error: 'Either fileName, fileId, or executionArn query parameter is required' 
         })
       };
     }
 
     let targetExecutionArn = executionArn;
 
-    // If fileName is provided, find the execution for that file
-    if (fileName && !executionArn) {
+    // If fileId is provided, find the execution for that file (PREFERRED)
+    if (fileId && !executionArn) {
       try {
-        const validatedFileName = validateFileName(fileName);
-        console.log(`Looking for execution for file: ${validatedFileName}`);
+        const validatedFileId = validateFileId(fileId);
+        console.log(`Looking for execution for fileId: ${validatedFileId}`);
         
         const listCommand = new ListExecutionsCommand({
           stateMachineArn: STATE_MACHINE_ARN,
@@ -95,9 +110,48 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         const listResponse = await sfnClient.send(listCommand);
         
+        // Find execution that matches the fileId
+        const matchingExecution = listResponse.executions?.find(execution => {
+          // The execution name should contain the fileId (UUID)
+          return execution.name?.includes(validatedFileId);
+        });
+
+        if (!matchingExecution) {
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ 
+              error: 'No execution found for the specified fileId',
+              fileId: validatedFileId,
+              status: 'NOT_FOUND'
+            })
+          };
+        }
+
+        targetExecutionArn = matchingExecution.executionArn;
+      } catch (validationError) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: validationError instanceof Error ? validationError.message : 'Invalid fileId' })
+        };
+      }
+    }
+    // If fileName is provided (for backward compatibility)
+    else if (fileName && !executionArn) {
+      try {
+        const validatedFileName = validateFileName(fileName);
+        console.log(`Looking for execution for file: ${validatedFileName}`);
+        
+        const listCommand = new ListExecutionsCommand({
+          stateMachineArn: STATE_MACHINE_ARN,
+          maxResults: 50
+        });
+
+        const listResponse = await sfnClient.send(listCommand);
+        
         // Find execution that matches the fileName
         const matchingExecution = listResponse.executions?.find(execution => {
-          // The execution name typically contains the file name or we can check the input
           return execution.name?.includes(validatedFileName.replace('.wav', '')) || 
                  execution.name?.includes(validatedFileName);
         });
@@ -152,7 +206,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isComplete: ['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED'].includes(execution.status || ''),
       isSuccessful: execution.status === 'SUCCEEDED',
       error: execution.status === 'FAILED' ? execution.error : undefined,
-      fileName: fileName
+      fileName: fileName,
+      fileId: fileId
     };
 
     console.log(`Execution status: ${execution.status}`);
