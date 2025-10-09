@@ -1,180 +1,209 @@
 // Service for handling file uploads and API communication
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/';
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL ||
+  "https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/";
 const AWS_REGION = process.env.REACT_APP_AWS_REGION;
 
 export const uploadService = {
   // Upload file to S3 using presigned URL
   async uploadFile(file, onProgress, onStatusChange) {
     //console.log(`Starting upload for file: ${file.name} (${file.size} bytes)`);
-    
+
     try {
       // Get presigned URL
       onProgress?.(10);
       const urlResponse = await fetch(`${API_BASE_URL}generate-url`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           fileName: file.name,
-          fileType: file.type
-        })
+          fileType: file.type,
+        }),
       });
-      
+
       if (!urlResponse.ok) {
-        throw new Error(`Failed to get presigned URL with status: ${urlResponse.status}`);
+        throw new Error(
+          `Failed to get presigned URL with status: ${urlResponse.status}`
+        );
       }
-      
+
       const { uploadUrl, fileId, originalFileName } = await urlResponse.json();
       onProgress?.(30);
-      console.log(`Generated presigned URL for fileId: ${fileId}, original: ${originalFileName}`);
-      
+      console.log(
+        `Generated presigned URL for fileId: ${fileId}, original: ${originalFileName}`
+      );
+
       // Upload file to S3 with progress simulation
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        
-        xhr.upload.addEventListener('progress', (e) => {
+
+        xhr.upload.addEventListener("progress", (e) => {
           if (e.lengthComputable) {
             const progress = Math.round(30 + (e.loaded / e.total) * 40); // Upload takes 30-70%
             onProgress?.(progress);
           }
         });
-        
-        xhr.addEventListener('load', async () => {
+
+        xhr.addEventListener("load", async () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             onProgress?.(70);
-            onStatusChange?.('processing', null);
-            
+            onStatusChange?.("processing", null);
+
             // Notify the analysis container that processing has started
-            console.log('Upload completed, notifying processing status');
-            this.statusChangeCallback?.('processing', { 
-              fileId: fileId, 
-              originalFileName: originalFileName 
-              });
-            
-            // Start polling for execution status
-            this.pollExecutionStatus(fileId, originalFileName, onProgress, onStatusChange);
-            
-            resolve({ success: true,
+            console.log("Upload completed, notifying processing status");
+            this.statusChangeCallback?.("processing", {
               fileId: fileId,
               originalFileName: originalFileName,
-              fileSize: file.size });
+            });
+
+            // Start polling for execution status
+            this.pollExecutionStatus(
+              fileId,
+              originalFileName,
+              onProgress,
+              onStatusChange
+            );
+
+            resolve({
+              success: true,
+              fileId: fileId,
+              originalFileName: originalFileName,
+              fileSize: file.size,
+            });
           } else {
-            reject(new Error(`Failed to upload file with status: ${xhr.status}`));
+            reject(
+              new Error(`Failed to upload file with status: ${xhr.status}`)
+            );
           }
         });
-        
-        xhr.addEventListener('error', () => {
-          reject(new Error('Upload failed'));
+
+        xhr.addEventListener("error", () => {
+          reject(new Error("Upload failed"));
         });
-        
-        xhr.open('PUT', uploadUrl);
+
+        xhr.open("PUT", uploadUrl);
         xhr.send(file);
       });
     } catch (error) {
-      console.error('Upload error:', error.message);
+      console.error("Upload error:", error.message);
       throw error;
     }
   },
 
   // Poll execution status until completion
-  async pollExecutionStatus(fileId, originalFileName, onProgress, onStatusChange) {
+  async pollExecutionStatus(
+    fileId,
+    originalFileName,
+    onProgress,
+    onStatusChange
+  ) {
     const maxAttempts = 60; // 5 minutes max (5 second intervals)
     let attempts = 0;
-    
+
     const poll = async () => {
       try {
         attempts++;
-        
-        const response = await fetch(`${API_BASE_URL}execution-status?fileId=${encodeURIComponent(fileId)}`);
-        
+
+        const response = await fetch(
+          `${API_BASE_URL}execution-status?fileId=${encodeURIComponent(fileId)}`
+        );
+
         if (response.ok) {
           const status = await response.json();
-          console.log('Execution status:', status);
-          
+          console.log("Execution status:", status);
+
           if (status.isComplete) {
             if (status.isSuccessful) {
               onProgress?.(100);
               // Get the final results
               try {
                 const results = await this.getResults(fileId);
-                console.log('Processing completed, notifying completion status');
-                onStatusChange?.('completed', results);
-                this.statusChangeCallback?.('completed', { 
-                  ...results,
+                console.log(
+                  "Processing completed, notifying completion status"
+                );
+                onStatusChange?.("completed", results);
+                this.statusChangeCallback?.("completed", {
                   fileId: fileId,
-                  originalFileName: originalFileName
+                  originalFileName: originalFileName,
+                  ...results,
                 });
               } catch (error) {
-                console.error('Error getting results after completion:', error);
-                onStatusChange?.('completed', null);
-                this.statusChangeCallback?.('completed', { 
+                console.error("Error getting results after completion:", error);
+                onStatusChange?.("completed", null);
+                this.statusChangeCallback?.("completed", {
                   fileId: fileId,
-                  originalFileName: originalFileName
-                 });
+                  originalFileName: originalFileName,
+                });
               }
             } else {
-              console.log('Processing failed, notifying failure status');
-              onStatusChange?.('failed', { error: status.error || 'Processing failed' });
-              this.statusChangeCallback?.('failed', { error: status.error || 'Processing failed', 
+              console.log("Processing failed, notifying failure status");
+              onStatusChange?.("failed", {
+                error: status.error || "Processing failed",
+              });
+              this.statusChangeCallback?.("failed", {
                 fileId: fileId,
-                originalFileName: originalFileName 
-               });
+                originalFileName: originalFileName,
+                error: status.error || "Processing failed",
+              });
             }
             return; // Stop polling
           }
-          
+
           // Still processing - update progress
-          const progressPercent = Math.min(95, 70 + (attempts * 2)); // Gradually increase from 70% to 95%
+          const progressPercent = Math.min(95, 70 + attempts * 2); // Gradually increase from 70% to 95%
           onProgress?.(progressPercent);
-          
         } else if (response.status === 404) {
           // Execution not found yet, keep polling
-          console.log('Execution not found yet, continuing to poll...');
+          console.log("Execution not found yet, continuing to poll...");
         } else {
-          throw new Error(`Status check failed with status: ${response.status}`);
+          throw new Error(
+            `Status check failed with status: ${response.status}`
+          );
         }
-        
+
         // Continue polling if not complete and within max attempts
         if (attempts < maxAttempts) {
           setTimeout(poll, 5000); // Poll every 5 seconds
         } else {
           // Timeout - but still try to get results
-          console.warn('Polling timeout reached, attempting to get results anyway');
+          console.warn(
+            "Polling timeout reached, attempting to get results anyway"
+          );
           try {
-            const results = await this.getResults(fileName);
-            onStatusChange?.('completed', results);
-            this.statusChangeCallback?.('completed', { 
-              ...results, 
+            const results = await this.getResults(fileId);
+            onStatusChange?.("completed", results);
+            this.statusChangeCallback?.("completed", {
               fileId: fileId,
-              originalFileName: originalFileName 
-             });
+              originalFileName: originalFileName,
+              ...results,
+            });
           } catch (error) {
-            onStatusChange?.('timeout', null);
-            this.statusChangeCallback?.('timeout', { 
+            onStatusChange?.("timeout", null);
+            this.statusChangeCallback?.("timeout", {
               fileId: fileId,
-              originalFileName: originalFileName 
-             });
+              originalFileName: originalFileName,
+            });
           }
         }
-        
       } catch (error) {
-        console.error('Error polling execution status:', error);
-        
+        console.error("Error polling execution status:", error);
+
         // On error, fall back to trying to get results
         if (attempts < maxAttempts) {
           setTimeout(poll, 5000); // Continue polling despite error
         } else {
-          onStatusChange?.('error', { error: error.message });
-          this.statusChangeCallback?.('error', { error: error.message,
+          onStatusChange?.("error", {
             fileId: fileId,
-            originalFileName: originalFileName
-           });
+            originalFileName: originalFileName,
+            error: error.message,
+          });
         }
       }
     };
-    
+
     // Start polling after a short delay to allow execution to start
     setTimeout(poll, 3000);
   },
@@ -182,20 +211,24 @@ export const uploadService = {
   // Get results from API
   async getResults(fileId) {
     const fileName = `aggregated_${fileId}.json`;
-    console.log(`Fetching results for fileId: ${fileId}, fileName: ${fileName}`);
-    
+    console.log(
+      `Fetching results for fileId: ${fileId}, fileName: ${fileName}`
+    );
+
     try {
-      const response = await fetch(`${API_BASE_URL}get-results?fileName=${encodeURIComponent(fileName)}`);
-      
+      const response = await fetch(
+        `${API_BASE_URL}get-results?fileName=${encodeURIComponent(fileName)}`
+      );
+
       if (!response.ok) {
         throw new Error(`Failed to get results. Status: ${response.status}`);
       }
-      
+
       const results = await response.json();
-      console.log('Results retrieved successfully:', results);
+      console.log("Results retrieved successfully:", results);
       return results;
     } catch (error) {
-      console.error('Error fetching results:', error.message);
+      console.error("Error fetching results:", error.message);
       throw error;
     }
   },
@@ -211,46 +244,52 @@ export const uploadService = {
     try {
       const response = await fetch(`${API_BASE_URL}/analysis/${fileId}`, {
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
-      
+
       if (!response.ok) {
-        console.error(`Failed to get analysis results. Status: ${response.status}`);
-        throw new Error(`Failed to get analysis results. Status: ${response.status}`);
+        console.error(
+          `Failed to get analysis results. Status: ${response.status}`
+        );
+        throw new Error(
+          `Failed to get analysis results. Status: ${response.status}`
+        );
       }
-      
+
       const results = await response.json();
       //console.log('Analysis results retrieved successfully:', results);
       return results;
     } catch (error) {
-      console.error('Error fetching analysis results:', error.message);
+      console.error("Error fetching analysis results:", error.message);
       throw error;
     }
   },
 
   // Simulate upload progress (for demo purposes)
   simulateUpload(file, onProgress) {
-    console.log(`Simulating upload for file: ${file.name} (${file.size} bytes)`);
+    console.log(
+      `Simulating upload for file: ${file.name} (${file.size} bytes)`
+    );
     return new Promise((resolve) => {
       let progress = 0;
       const interval = setInterval(() => {
         progress += 10;
         console.log(`Upload progress: ${progress}%`);
         onProgress(progress);
-        
+
         if (progress >= 100) {
           clearInterval(interval);
           const result = {
             success: true,
             fileId: Date.now().toString(),
             originalFileName: file.name,
-            fileSize: file.size
+            fileSize: file.size,
           };
-          console.log('Simulated upload complete:', result);
+          console.log("Simulated upload complete:", result);
           resolve(result);
         }
       }, 200);
     });
-  }
+  },
 };
