@@ -556,9 +556,8 @@ export class HotlineQaStack extends cdk.Stack {
         }),
         environmentVariables: {
           REACT_APP_API_BASE_URL: this.apiUrl,
-          REACT_APP_API_URL: this.apiUrl,
-          REACT_APP_AWS_REGION: cdk.Stack.of(this).region,
-          REACT_APP_BUCKET_NAME: this.storageBucket.bucketName,
+          // Removed REACT_APP_AWS_REGION - not needed in frontend
+          // Removed REACT_APP_BUCKET_NAME - not needed in frontend (backend handles S3)
         },
         buildSpec: codebuild.BuildSpec.fromObjectToYaml({
           version: '1.0',

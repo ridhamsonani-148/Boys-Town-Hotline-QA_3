@@ -3,7 +3,6 @@
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE_URL ||
   "https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/";
-const AWS_REGION = process.env.REACT_APP_AWS_REGION;
 
 export const uploadService = {
   // Upload file to S3 using presigned URL
