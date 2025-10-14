@@ -342,7 +342,7 @@ export class HotlineQaStack extends cdk.Stack {
     });
 
     // Grant Lambda permissions to use Transcribe with project-specific scope
-    const transcribeJobArnPattern = `arn:aws:transcribe:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:call-analytics-job/${bucketNamePrefix}-${envName}-*`;
+    const transcribeJobArnPattern = `arn:aws:transcribe:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:analytics/*`;
     transcribeFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'transcribe:StartCallAnalyticsJob',
