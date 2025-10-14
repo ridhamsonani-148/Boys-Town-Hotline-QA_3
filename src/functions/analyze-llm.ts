@@ -1,26 +1,26 @@
-import { 
-  S3Client, 
-  GetObjectCommand, 
-  PutObjectCommand 
-} from '@aws-sdk/client-s3';
-import { 
-  BedrockRuntimeClient, 
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
+import {
+  BedrockRuntimeClient,
   ConverseCommand,
   ConversationRole,
   ContentBlock,
-  SystemContentBlock
-} from '@aws-sdk/client-bedrock-runtime';
+  SystemContentBlock,
+} from "@aws-sdk/client-bedrock-runtime";
 
 const s3Client = new S3Client({});
 const bedrockClient = new BedrockRuntimeClient({});
 const { BUCKET_NAME } = process.env;
 
 if (!BUCKET_NAME) {
-  throw new Error('Required environment variable BUCKET_NAME must be set');
+  throw new Error("Required environment variable BUCKET_NAME must be set");
 }
 
 // Model ID for Amazon Nova Pro
-const MODEL_ID = 'us.amazon.nova-pro-v1:0';
+const MODEL_ID = "us.amazon.nova-pro-v1:0";
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -51,146 +51,190 @@ interface FormattedTranscript {
 
 // Validation functions for formatted transcript
 function validateFormattedTranscript(data: any): FormattedTranscript {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid formatted transcript structure');
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid formatted transcript structure");
   }
 
   // Validate summary
-  if (typeof data.summary !== 'string') {
-    throw new Error('Summary must be a string');
+  if (typeof data.summary !== "string") {
+    throw new Error("Summary must be a string");
   }
-  const sanitizedSummary = data.summary
-    .slice(0, 5000)
-    .replace(/<script[^>]*>.*?<\/script>/gi, '')
-    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/on\w+\s*=/gi, '');
+
+  // Check for malicious content in summary
+  const hasMaliciousSummary =
+    /<script[^>]*>/gi.test(data.summary) ||
+    /<iframe[^>]*>/gi.test(data.summary) ||
+    /javascript:/gi.test(data.summary) ||
+    /on\w+\s*=/gi.test(data.summary);
+
+  if (hasMaliciousSummary) {
+    console.error("SECURITY ALERT: Malicious content detected in summary");
+    throw new Error(
+      "Malicious content detected in summary - possible tampering"
+    );
+  }
+
+  if (data.summary.length > 5000) {
+    throw new Error("Summary exceeds maximum length of 5000 characters");
+  }
 
   // Validate transcript array
   if (!Array.isArray(data.transcript)) {
-    throw new Error('Transcript must be an array');
+    throw new Error("Transcript must be an array");
   }
   if (data.transcript.length === 0) {
-    throw new Error('Transcript array is empty');
+    throw new Error("Transcript array is empty");
   }
   if (data.transcript.length > 10000) {
-    throw new Error('Transcript array too large');
+    throw new Error("Transcript array too large");
   }
 
   // Validate each transcript entry
-  const validatedTranscript = data.transcript.map((item: any, index: number) => {
-    if (!item || typeof item !== 'object') {
-      throw new Error(`Invalid transcript item at index ${index}`);
-    }
+  const validatedTranscript = data.transcript.map(
+    (item: any, index: number) => {
+      if (!item || typeof item !== "object") {
+        throw new Error(`Invalid transcript item at index ${index}`);
+      }
 
-    // Validate speaker
-    if (typeof item.speaker !== 'string') {
-      throw new Error(`Invalid speaker at index ${index}`);
-    }
-    const sanitizedSpeaker = item.speaker
-      .slice(0, 20)
-      .replace(/[^A-Z_]/g, '');
+      // Validate speaker
+      if (typeof item.speaker !== "string") {
+        throw new Error(`Invalid speaker at index ${index}`);
+      }
+      const sanitizedSpeaker = item.speaker
+        .slice(0, 20)
+        .replace(/[^A-Z_]/g, "");
 
-    // Validate text
-    if (typeof item.text !== 'string') {
-      throw new Error(`Invalid text at index ${index}`);
-    }
-    const sanitizedText = item.text
-      .slice(0, 10000)
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=/gi, '');
+      // Validate text
+      if (typeof item.text !== "string") {
+        throw new Error(`Invalid text at index ${index}`);
+      }
 
-    // Validate timestamps (format: MM:SS.mmm)
-    const timeRegex = /^\d{2}:\d{2}\.\d{3}$/;
-    if (typeof item.beginTime !== 'string' || !timeRegex.test(item.beginTime)) {
-      throw new Error(`Invalid beginTime format at index ${index}`);
-    }
-    if (typeof item.endTime !== 'string' || !timeRegex.test(item.endTime)) {
-      throw new Error(`Invalid endTime format at index ${index}`);
-    }
+      // Check for malicious content patterns
+      const hasMaliciousText =
+        /<script[^>]*>/gi.test(item.text) ||
+        /<iframe[^>]*>/gi.test(item.text) ||
+        /javascript:/gi.test(item.text) ||
+        /on\w+\s*=/gi.test(item.text);
 
-    return {
-      speaker: sanitizedSpeaker,
-      text: sanitizedText,
-      beginTime: item.beginTime,
-      endTime: item.endTime
-    };
-  });
+      if (hasMaliciousText) {
+        console.error(
+          "SECURITY ALERT: Malicious content detected in transcript",
+          {
+            index,
+            speaker: item.speaker,
+            textPreview: item.text.slice(0, 100),
+          }
+        );
+        throw new Error(
+          `Malicious content detected at transcript index ${index} - possible tampering`
+        );
+      }
 
+      if (item.text.length > 10000) {
+        throw new Error(
+          `Text at index ${index} exceeds maximum length of 10000 characters`
+        );
+      }
+
+      // Validate timestamps (format: MM:SS.mmm)
+      const timeRegex = /^\d{2}:\d{2}\.\d{3}$/;
+      if (
+        typeof item.beginTime !== "string" ||
+        !timeRegex.test(item.beginTime)
+      ) {
+        throw new Error(`Invalid beginTime format at index ${index}`);
+      }
+      if (typeof item.endTime !== "string" || !timeRegex.test(item.endTime)) {
+        throw new Error(`Invalid endTime format at index ${index}`);
+      }
+
+      // If we reach here, all validation passed - return validated data as-is
+      return {
+        speaker: sanitizedSpeaker,
+        text: item.text, // Validated (not sanitized) - passed all checks above
+        beginTime: item.beginTime,
+        endTime: item.endTime,
+      };
+    }
+  );
+
+  // All validation passed - return validated data
   return {
-    summary: sanitizedSummary,
-    transcript: validatedTranscript
+    summary: data.summary, // Validated (not sanitized) - passed all checks above
+    transcript: validatedTranscript,
   };
 }
 
 export const handler = async (event: AnalyzeEvent): Promise<any> => {
-  console.log('Received event:', JSON.stringify(event, null, 2));
-  
+  console.log("Received event:", JSON.stringify(event, null, 2));
+
   // Determine bucket and key from either Step Functions input or S3 event
-  let bucket = event.bucket || '';
-  let formattedKey = event.formattedKey || '';
-  
+  let bucket = event.bucket || "";
+  let formattedKey = event.formattedKey || "";
+
   // If this is an S3 event, extract bucket and key
   if (event.Records && event.Records.length > 0) {
     const record = event.Records[0];
     bucket = record.s3.bucket.name;
-    formattedKey = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
+    formattedKey = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
   }
-  
+
   // Use environment variable if bucket is not provided
   if (!bucket) {
     bucket = BUCKET_NAME;
   }
-  
+
   if (!formattedKey) {
-    throw new Error('No formatted transcript key provided');
+    throw new Error("No formatted transcript key provided");
   }
-  
+
   try {
     // Get the formatted transcript from S3
     const getCommand = new GetObjectCommand({
       Bucket: bucket,
-      Key: formattedKey
+      Key: formattedKey,
     });
-    
+
     const response = await s3Client.send(getCommand);
     const body = await response.Body?.transformToString();
-    
+
     if (!body) {
       throw new Error(`Empty response body for ${formattedKey}`);
     }
-    
+
     // Parse the formatted transcript
     const rawData = JSON.parse(body);
-    
+
     // Validate the formatted transcript before processing
     const formattedTranscript = validateFormattedTranscript(rawData);
-    
+
     // Create the result key in the results/llmOutput folder
-    const resultKey = formattedKey.replace('transcripts/formatted/', 'results/llmOutput/').replace('formatted_', 'analysis_');
-    
+    const resultKey = formattedKey
+      .replace("transcripts/formatted/", "results/llmOutput/")
+      .replace("formatted_", "analysis_");
+
     // Analyze the transcript using Bedrock
     const analysisResult = await analyzeTranscript(formattedTranscript);
-    
+
     // Save the analysis result to S3
     const putCommand = new PutObjectCommand({
       Bucket: bucket,
       Key: resultKey,
       Body: JSON.stringify(analysisResult, null, 2),
-      ContentType: 'application/json'
+      ContentType: "application/json",
     });
-    
+
     await s3Client.send(putCommand);
-    console.log(`Successfully analyzed transcript and saved results to ${resultKey}`);
-    
+    console.log(
+      `Successfully analyzed transcript and saved results to ${resultKey}`
+    );
+
     // Return the result for Step Functions
     return {
       bucket,
       formattedKey,
       resultKey,
-      status: 'SUCCESS'
+      status: "SUCCESS",
     };
   } catch (error) {
     console.error(`Error analyzing transcript ${formattedKey}:`, error);
@@ -198,15 +242,16 @@ export const handler = async (event: AnalyzeEvent): Promise<any> => {
   }
 };
 
-async function analyzeTranscript(formattedTranscript: FormattedTranscript): Promise<any> {
+async function analyzeTranscript(
+  formattedTranscript: FormattedTranscript
+): Promise<any> {
   // Prepare the transcript for the LLM
   const transcriptText = formattedTranscript.transcript
-    .map(item => `${item.beginTime} ${item.speaker}: ${item.text}`)
-    .join('\n\n');
-  
+    .map((item) => `${item.beginTime} ${item.speaker}: ${item.text}`)
+    .join("\n\n");
+
   // Create the system message
-  const systemMessage = 
-  `You are an expert QA evaluator for Boys Town National Hotline, a crisis counseling service that helps people in distress. 
+  const systemMessage = `You are an expert QA evaluator for Boys Town National Hotline, a crisis counseling service that helps people in distress. 
   Your task is to objectively evaluate counselor performance based on call transcripts using the Boys Town evaluation rubric.
 
   **EVALUATION APPROACH:**
@@ -1583,46 +1628,49 @@ async function analyzeTranscript(formattedTranscript: FormattedTranscript): Prom
     // Move system prompt to top-level system field, not in messages array
     const command = new ConverseCommand({
       modelId: MODEL_ID,
-      
+
       // Top-level system prompt as an array of SystemContentBlock
       system: [{ text: systemMessage }] as SystemContentBlock[],
-      
+
       // Only user role in messages array
       messages: [
-        { 
-          role: 'user' as ConversationRole, 
-          content: [{ text: userMessage }] as ContentBlock[]
-        }
+        {
+          role: "user" as ConversationRole,
+          content: [{ text: userMessage }] as ContentBlock[],
+        },
       ],
-      
+
       inferenceConfig: {
         //maxTokens: 4096,
         temperature: 0.1,
-        topP: 0.9
-      }
+        topP: 0.9,
+      },
     });
-    
+
     const response = await bedrockClient.send(command);
-    
+
     // Extract the content from the response
     // Bedrock returns the chat response under response.output?.message?.content
-    let content = '';
-    if (response.output?.message?.content && response.output.message.content.length > 0) {
-      content = response.output.message.content[0].text || '';
+    let content = "";
+    if (
+      response.output?.message?.content &&
+      response.output.message.content.length > 0
+    ) {
+      content = response.output.message.content[0].text || "";
     }
-    
+
     // Try to parse the content as JSON if it's in JSON format
     try {
       return JSON.parse(content);
     } catch (e) {
       // If parsing fails, return the raw content
-      return { 
+      return {
         raw_analysis: content,
-        summary: formattedTranscript.summary
+        summary: formattedTranscript.summary,
       };
     }
   } catch (error) {
-    console.error('Error calling Bedrock:', error);
+    console.error("Error calling Bedrock:", error);
     throw new Error(`Failed to analyze transcript: ${error}`);
   }
 }

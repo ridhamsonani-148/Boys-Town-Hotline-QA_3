@@ -36,13 +36,17 @@ function validateCounselorId(counselorId: string): string {
     throw new Error('CounselorId is required and must be a string');
   }
   
-  // Only allow alphanumeric, underscore, and hyphen
-  const sanitized = counselorId.replace(/[^a-zA-Z0-9_-]/g, '');
-  if (sanitized.length < 2 || sanitized.length > 50) {
+  // Check for malicious patterns BEFORE sanitization
+  if (counselorId !== counselorId.replace(/[^a-zA-Z0-9_-]/g, '')) {
+    console.error('SECURITY ALERT: Invalid characters in CounselorId', { counselorId });
+    throw new Error('CounselorId contains invalid characters - only alphanumeric, underscore, and hyphen allowed');
+  }
+  
+  if (counselorId.length < 2 || counselorId.length > 50) {
     throw new Error('CounselorId must be between 2 and 50 characters');
   }
   
-  return sanitized;
+  return counselorId;
 }
 
 function validateCounselorName(counselorName: string): string {
@@ -50,13 +54,18 @@ function validateCounselorName(counselorName: string): string {
     throw new Error('CounselorName is required and must be a string');
   }
   
-  // Allow letters, spaces, hyphens, and apostrophes
-  const sanitized = counselorName.replace(/[^a-zA-Z\s'-]/g, '').trim();
-  if (sanitized.length < 2 || sanitized.length > 100) {
+  // Check for malicious patterns BEFORE sanitization
+  const cleanName = counselorName.replace(/[^a-zA-Z\s'-]/g, '').trim();
+  if (cleanName !== counselorName.trim()) {
+    console.error('SECURITY ALERT: Invalid characters in CounselorName', { counselorName });
+    throw new Error('CounselorName contains invalid characters - only letters, spaces, hyphens, and apostrophes allowed');
+  }
+  
+  if (cleanName.length < 2 || cleanName.length > 100) {
     throw new Error('CounselorName must be between 2 and 100 characters');
   }
   
-  return sanitized;
+  return cleanName;
 }
 
 function validateProgramType(programType: any): string[] {
