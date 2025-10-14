@@ -9,9 +9,10 @@ const app = new cdk.App();
 const envName = app.node.tryGetContext('envName') || 'dev';
 const bucketNamePrefix = app.node.tryGetContext('bucketNamePrefix');
 const deployFrontend = app.node.tryGetContext('deployFrontend') !== 'false'; // Deploy by default
-const githubOwner = app.node.tryGetContext('githubOwner');
-const githubRepo = app.node.tryGetContext('githubRepo');
-const githubTokenSecretName = app.node.tryGetContext('githubTokenSecretName');
+const githubOwner = app.node.tryGetContext('githubOwner') || process.env.GITHUB_OWNER;
+const githubRepo = app.node.tryGetContext('githubRepo') || process.env.GITHUB_REPO;
+const githubTokenSecretName = app.node.tryGetContext('githubTokenSecretName') || process.env.GITHUB_TOKEN_SECRET;
+
 
 // Validate GitHub parameters if frontend deployment is enabled
 if (deployFrontend && (!githubOwner || !githubRepo || !githubTokenSecretName)) {
