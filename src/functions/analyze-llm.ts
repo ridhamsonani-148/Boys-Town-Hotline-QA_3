@@ -49,6 +49,82 @@ interface FormattedTranscript {
   }>;
 }
 
+// Validation functions for formatted transcript
+function validateFormattedTranscript(data: any): FormattedTranscript {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid formatted transcript structure');
+  }
+
+  // Validate summary
+  if (typeof data.summary !== 'string') {
+    throw new Error('Summary must be a string');
+  }
+  const sanitizedSummary = data.summary
+    .slice(0, 5000)
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '');
+
+  // Validate transcript array
+  if (!Array.isArray(data.transcript)) {
+    throw new Error('Transcript must be an array');
+  }
+  if (data.transcript.length === 0) {
+    throw new Error('Transcript array is empty');
+  }
+  if (data.transcript.length > 10000) {
+    throw new Error('Transcript array too large');
+  }
+
+  // Validate each transcript entry
+  const validatedTranscript = data.transcript.map((item: any, index: number) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error(`Invalid transcript item at index ${index}`);
+    }
+
+    // Validate speaker
+    if (typeof item.speaker !== 'string') {
+      throw new Error(`Invalid speaker at index ${index}`);
+    }
+    const sanitizedSpeaker = item.speaker
+      .slice(0, 20)
+      .replace(/[^A-Z_]/g, '');
+
+    // Validate text
+    if (typeof item.text !== 'string') {
+      throw new Error(`Invalid text at index ${index}`);
+    }
+    const sanitizedText = item.text
+      .slice(0, 10000)
+      .replace(/<script[^>]*>.*?<\/script>/gi, '')
+      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '');
+
+    // Validate timestamps (format: MM:SS.mmm)
+    const timeRegex = /^\d{2}:\d{2}\.\d{3}$/;
+    if (typeof item.beginTime !== 'string' || !timeRegex.test(item.beginTime)) {
+      throw new Error(`Invalid beginTime format at index ${index}`);
+    }
+    if (typeof item.endTime !== 'string' || !timeRegex.test(item.endTime)) {
+      throw new Error(`Invalid endTime format at index ${index}`);
+    }
+
+    return {
+      speaker: sanitizedSpeaker,
+      text: sanitizedText,
+      beginTime: item.beginTime,
+      endTime: item.endTime
+    };
+  });
+
+  return {
+    summary: sanitizedSummary,
+    transcript: validatedTranscript
+  };
+}
+
 export const handler = async (event: AnalyzeEvent): Promise<any> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
   
@@ -87,7 +163,10 @@ export const handler = async (event: AnalyzeEvent): Promise<any> => {
     }
     
     // Parse the formatted transcript
-    const formattedTranscript: FormattedTranscript = JSON.parse(body);
+    const rawData = JSON.parse(body);
+    
+    // Validate the formatted transcript before processing
+    const formattedTranscript = validateFormattedTranscript(rawData);
     
     // Create the result key in the results/llmOutput folder
     const resultKey = formattedKey.replace('transcripts/formatted/', 'results/llmOutput/').replace('formatted_', 'analysis_');
