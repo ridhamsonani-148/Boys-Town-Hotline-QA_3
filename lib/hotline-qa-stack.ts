@@ -341,13 +341,19 @@ export class HotlineQaStack extends cdk.Stack {
       description: 'Checks Step Functions execution status for uploaded files',
     });
 
-    // Grant Lambda permissions to use Transcribe and PassRole
+    // Grant Lambda permissions to use Transcribe with project-specific scope
+    const transcribeJobArnPattern = `arn:aws:transcribe:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:call-analytics-job/${bucketNamePrefix}-${envName}-*`;
     transcribeFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'transcribe:StartCallAnalyticsJob',
         'transcribe:GetCallAnalyticsJob',
       ],
-      resources: ['*'],
+      resources: [transcribeJobArnPattern],
+      conditions: {
+        StringEquals: {
+          'aws:RequestedRegion': cdk.Aws.REGION
+        }
+      }
     }));
 
     // Add specific PassRole permission for the Transcribe role
@@ -361,7 +367,12 @@ export class HotlineQaStack extends cdk.Stack {
       actions: [
         'transcribe:GetCallAnalyticsJob',
       ],
-      resources: ['*'],
+      resources: [transcribeJobArnPattern],
+      conditions: {
+        StringEquals: {
+          'aws:RequestedRegion': cdk.Aws.REGION
+        }
+      }
     }));
 
     const bedrockModelArn = `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/amazon.nova-pro-v1:0`;
