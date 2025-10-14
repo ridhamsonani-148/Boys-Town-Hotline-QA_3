@@ -1,8 +1,7 @@
 // Service for handling file uploads and API communication
 
 const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL ||
-  "https://td86a455og.execute-api.us-east-1.amazonaws.com/prod/";
+  process.env.REACT_APP_API_BASE_URL;
 
 export const uploadService = {
   // Upload file to S3 using presigned URL
