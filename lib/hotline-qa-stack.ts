@@ -381,7 +381,7 @@ export class HotlineQaStack extends cdk.Stack {
       }
     }));
 
-    const bedrockModelArn = `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/amazon.nova-pro-v1:0`;
+    const bedrockModelArn = `arn:aws:bedrock:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:inference-profile/us.amazon.nova-pro-v1:0`;
 
     // Grant LLM analysis function permission to use Bedrock
     analyzeLLMFunction.addToRolePolicy(new iam.PolicyStatement({

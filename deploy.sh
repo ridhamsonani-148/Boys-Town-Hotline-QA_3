@@ -222,6 +222,8 @@ else
           "transcribe:*",
           "bedrock:*",
           "amplify:*",
+          "lambda:UpdateFunctionConfiguration",  
+          "lambda:GetFunctionConfiguration",    
           "ecr:CreateRepository",
           "ecr:DescribeRepositories",
           "ecr:PutLifecyclePolicy",

@@ -37,7 +37,7 @@ phases:
       - echo "Setting up CDK environment..."
       - ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
       - echo "Account:[REDACTED], Region:$AWS_REGION"
-      
+
       - echo "🔧 Checking CDK bootstrap status..."
       - |
         if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region $AWS_REGION > /dev/null 2>&1; then
@@ -46,7 +46,7 @@ phases:
         else
           echo "✅ CDK already bootstrapped"
         fi
-      
+
       - echo "🔐 Validating GitHub token secret..."
       - |
         if ! aws secretsmanager describe-secret --secret-id "$GITHUB_TOKEN_SECRET" --region "$AWS_REGION" > /dev/null 2>&1; then
@@ -55,7 +55,7 @@ phases:
           exit 1
         fi
         echo "✅ GitHub token secret validated"
-      
+
       - |
         if [ "$ACTION" = "destroy" ]; then
           echo "🗑️  Destroying Boys Town Hotline QA system..."
@@ -137,13 +137,6 @@ phases:
             
             # List of Lambda functions to update (match your CDK stack)
             LAMBDA_FUNCTIONS=(
-              "StartWorkflowFunction"
-              "TranscribeFunction"
-              "CheckTranscribeStatusFunction"
-              "FormatFunction"
-              "AnalyzeLLMFunction"
-              "AggregateScoresFunction"
-              "UpdateCounselorRecordsFunction"
               "ManageCounselorProfilesFunction"
               "GeneratePresignedUrlFunction"
               "GetResultsFunction"
@@ -188,21 +181,36 @@ phases:
             
             echo "✅ Lambda environment variables update completed"
             
-            # Update API Gateway CORS (if possible)
-            echo "🌐 Attempting to update API Gateway CORS..."
+            # Update API Gateway CORS
+            echo "🌐 Updating API Gateway CORS..."
             API_ID=$(aws apigateway get-rest-apis --region "$AWS_REGION" --query "items[?name=='Boys Town Hotline QA API'].id" --output text)
             
             if [ ! -z "$API_ID" ] && [ "$API_ID" != "None" ]; then
               echo "  🔄 API Gateway ID: $API_ID"
-              echo "  📝 Note: API Gateway CORS update requires manual intervention or stack update"
-              echo "  💡 Manual steps:"
-              echo "    1. Go to API Gateway Console → $API_ID"
-              echo "    2. Select your API → Resources"
-              echo "    3. Select ANY method → Enable CORS"
-              echo "    4. Set Access-Control-Allow-Origin: $AMPLIFY_APP_URL"
-              echo "    5. Deploy API"
-            else
-              echo "  ⚠️  API Gateway not found for CORS update"
+              
+              # Get all resources
+              RESOURCES_JSON=$(aws apigateway get-resources --rest-api-id $API_ID --region $AWS_REGION)
+              echo "$RESOURCES_JSON" | jq -r '.items[].id' | while read RESOURCE_ID; do
+                RESOURCE_PATH=$(echo "$RESOURCES_JSON" | jq -r ".items[] | select(.id==\"$RESOURCE_ID\") | .path")
+                echo "    📝 Updating resource: $RESOURCE_PATH"
+                
+                # Update all methods for this resource
+                METHODS_JSON=$(aws apigateway get-methods --rest-api-id $API_ID --resource-id $RESOURCE_ID --region $AWS_REGION 2>/dev/null || echo "{}")
+                echo "$METHODS_JSON" | jq -r '.items[].httpMethod' 2>/dev/null | while read METHOD_TYPE; do
+                  aws apigateway update-integration-response \
+                    --rest-api-id $API_ID \
+                    --resource-id $RESOURCE_ID \
+                    --http-method $METHOD_TYPE \
+                    --status-code 200 \
+                    --patch-operations \
+                      op=replace,path=/responseParameters/method.response.header.Access-Control-Allow-Origin,value="'$AMPLIFY_APP_URL'" \
+                    --region $AWS_REGION > /dev/null 2>&1 && echo "      ✅ $METHOD_TYPE" || true
+                done
+              done
+              
+              # Deploy API
+              aws apigateway create-deployment --rest-api-id $API_ID --stage-name prod --region $AWS_REGION
+              echo "  ✅ API Gateway CORS updated and deployed"
             fi
             
             echo ""
@@ -210,7 +218,7 @@ phases:
             echo "🔒 Origin: $AMPLIFY_APP_URL"
             echo "📦 Updated: S3 Bucket CORS"
             echo "🔧 Updated: Lambda Environment Variables"
-            echo "🌐 Note: API Gateway may require manual update"
+            echo "🌐 Updated: API Gateway CORS"
             
           else
             echo "⚠️  Amplify URL not available, skipping CORS update"
@@ -243,10 +251,10 @@ phases:
 
 artifacts:
   files:
-    - '**/*'
-  base-directory: 'cdk.out'
+    - "**/*"
+  base-directory: "cdk.out"
 
 cache:
   paths:
-    - 'node_modules/**/*'
-    - 'frontend/node_modules/**/*'
+    - "node_modules/**/*"
+    - "frontend/node_modules/**/*"
