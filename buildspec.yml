@@ -160,11 +160,11 @@ phases:
                   echo "    📝 Current ALLOWED_ORIGIN: $(echo "$CURRENT_ENV" | jq -r '.ALLOWED_ORIGIN // "not set"')"
                   echo "    📝 Target ALLOWED_ORIGIN: $AMPLIFY_APP_URL"
                   
-                  # Update with ALLOWED_ORIGIN using jq (compact output, no spaces)
-                  UPDATED_ENV=$(echo "$CURRENT_ENV" | jq -c --arg origin "$AMPLIFY_APP_URL" '. + {ALLOWED_ORIGIN: $origin}')
+                  # Convert JSON to AWS CLI format: KEY1=value1,KEY2=value2
+                  # Update ALLOWED_ORIGIN with the new value
+                  UPDATED_ENV=$(echo "$CURRENT_ENV" | jq -r --arg origin "$AMPLIFY_APP_URL" '. + {ALLOWED_ORIGIN: $origin} | to_entries | map("\(.key)=\(.value)") | join(",")')
                   
-                  # Debug: Show the updated JSON (first 150 chars)
-                  echo "    🔍 Updated env: $(echo "$UPDATED_ENV" | head -c 150)..."
+                  echo "    🔍 Env format: {$UPDATED_ENV}"
                   
                   # Update Lambda configuration with retry logic
                   MAX_RETRIES=5
@@ -174,7 +174,7 @@ phases:
                   while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
                     UPDATE_OUTPUT=$(aws lambda update-function-configuration \
                       --function-name "$ACTUAL_FUNCTION_NAME" \
-                      --environment Variables="$UPDATED_ENV" \
+                      --environment "Variables={$UPDATED_ENV}" \
                       --region "$AWS_REGION" 2>&1)
                     UPDATE_EXIT_CODE=$?
                     
