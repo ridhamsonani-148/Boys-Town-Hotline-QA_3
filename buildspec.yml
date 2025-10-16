@@ -20,12 +20,12 @@ phases:
       - aws sts get-caller-identity --query 'Account' --output text > /dev/null 2>&1 && echo "✅ AWS CLI configured" || (echo "❌ AWS CLI not configured" && exit 1)
       - echo ""
       - echo "📋 Environment Configuration:"
-      - echo "COMPANY_NAME: $COMPANY_NAME"
-      - echo "GITHUB_OWNER: $GITHUB_OWNER"
-      - echo "GITHUB_REPO: $GITHUB_REPO"
-      - echo "GITHUB_TOKEN_SECRET: [REDACTED]"
-      - echo "AWS_REGION: $AWS_REGION"
-      - echo "ACTION: $ACTION"
+      - echo "COMPANY_NAME:$COMPANY_NAME"
+      - echo "GITHUB_OWNER:$GITHUB_OWNER"
+      - echo "GITHUB_REPO:$GITHUB_REPO"
+      - echo "GITHUB_TOKEN_SECRET:[REDACTED]"
+      - echo "AWS_REGION:$AWS_REGION"
+      - echo "ACTION:$ACTION"
       - echo ""
       - echo "📦 Building TypeScript project..."
       - npm run build
@@ -36,7 +36,7 @@ phases:
       - echo "🏗️  Build phase started on $(date)"
       - echo "Setting up CDK environment..."
       - ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-      - echo "Account: [REDACTED], Region: $AWS_REGION"
+      - echo "Account:[REDACTED], Region:$AWS_REGION"
       
       - echo "🔧 Checking CDK bootstrap status..."
       - |
