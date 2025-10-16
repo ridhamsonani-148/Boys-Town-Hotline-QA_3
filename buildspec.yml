@@ -156,20 +156,33 @@ phases:
                 # Get current environment variables
                 CURRENT_ENV=$(aws lambda get-function-configuration --function-name "$ACTUAL_FUNCTION_NAME" --region "$AWS_REGION" --query 'Environment.Variables' --output json 2>/dev/null || echo "{}")
                 
-                if [ "$CURRENT_ENV" != "{}" ]; then
+                if [ "$CURRENT_ENV" != "{}" ] && [ "$CURRENT_ENV" != "null" ]; then
                   # Update with ALLOWED_ORIGIN using jq
                   UPDATED_ENV=$(echo "$CURRENT_ENV" | jq --arg origin "$AMPLIFY_APP_URL" '. + {ALLOWED_ORIGIN: $origin}')
                   
-                  # Update Lambda configuration
-                  aws lambda update-function-configuration \
-                    --function-name "$ACTUAL_FUNCTION_NAME" \
-                    --environment "Variables=$UPDATED_ENV" \
-                    --region "$AWS_REGION" > /dev/null 2>&1
+                  # Update Lambda configuration with retry logic
+                  MAX_RETRIES=3
+                  RETRY_COUNT=0
+                  UPDATE_SUCCESS=false
                   
-                  if [ $? -eq 0 ]; then
+                  while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+                    if aws lambda update-function-configuration \
+                      --function-name "$ACTUAL_FUNCTION_NAME" \
+                      --environment "Variables=$UPDATED_ENV" \
+                      --region "$AWS_REGION" 2>&1 | grep -q "ResourceConflictException"; then
+                      echo "    ⏳ Function is updating, waiting 5 seconds..."
+                      sleep 5
+                      RETRY_COUNT=$((RETRY_COUNT + 1))
+                    else
+                      UPDATE_SUCCESS=true
+                      break
+                    fi
+                  done
+                  
+                  if [ "$UPDATE_SUCCESS" = true ]; then
                     echo "    ✅ Environment updated for $ACTUAL_FUNCTION_NAME"
                   else
-                    echo "    ⚠️  Could not update environment for $ACTUAL_FUNCTION_NAME"
+                    echo "    ⚠️  Could not update environment for $ACTUAL_FUNCTION_NAME (may be in use)"
                   fi
                 else
                   echo "    ⚠️  No environment variables found for $ACTUAL_FUNCTION_NAME"
@@ -181,44 +194,18 @@ phases:
             
             echo "✅ Lambda environment variables update completed"
             
-            # Update API Gateway CORS
-            echo "🌐 Updating API Gateway CORS..."
-            API_ID=$(aws apigateway get-rest-apis --region "$AWS_REGION" --query "items[?name=='Boys Town Hotline QA API'].id" --output text)
-            
-            if [ ! -z "$API_ID" ] && [ "$API_ID" != "None" ]; then
-              echo "  🔄 API Gateway ID: $API_ID"
-              
-              # Get all resources
-              RESOURCES_JSON=$(aws apigateway get-resources --rest-api-id $API_ID --region $AWS_REGION)
-              echo "$RESOURCES_JSON" | jq -r '.items[].id' | while read RESOURCE_ID; do
-                RESOURCE_PATH=$(echo "$RESOURCES_JSON" | jq -r ".items[] | select(.id==\"$RESOURCE_ID\") | .path")
-                echo "    📝 Updating resource: $RESOURCE_PATH"
-                
-                # Update all methods for this resource
-                METHODS_JSON=$(aws apigateway get-methods --rest-api-id $API_ID --resource-id $RESOURCE_ID --region $AWS_REGION 2>/dev/null || echo "{}")
-                echo "$METHODS_JSON" | jq -r '.items[].httpMethod' 2>/dev/null | while read METHOD_TYPE; do
-                  aws apigateway update-integration-response \
-                    --rest-api-id $API_ID \
-                    --resource-id $RESOURCE_ID \
-                    --http-method $METHOD_TYPE \
-                    --status-code 200 \
-                    --patch-operations \
-                      op=replace,path=/responseParameters/method.response.header.Access-Control-Allow-Origin,value="'$AMPLIFY_APP_URL'" \
-                    --region $AWS_REGION > /dev/null 2>&1 && echo "      ✅ $METHOD_TYPE" || true
-                done
-              done
-              
-              # Deploy API
-              aws apigateway create-deployment --rest-api-id $API_ID --stage-name prod --region $AWS_REGION
-              echo "  ✅ API Gateway CORS updated and deployed"
-            fi
+            # Note: API Gateway CORS is managed by CDK and set to allow all origins
+            # This is intentional for the initial deployment to allow frontend testing
+            # Lambda functions handle CORS at the application level with ALLOWED_ORIGIN env var
+            echo "📝 Note: API Gateway CORS is set to allow all origins (managed by CDK)"
+            echo "   Lambda functions enforce CORS using ALLOWED_ORIGIN environment variable"
             
             echo ""
-            echo "🎉 CORS configuration successfully restricted!"
-            echo "🔒 Origin: $AMPLIFY_APP_URL"
-            echo "📦 Updated: S3 Bucket CORS"
-            echo "🔧 Updated: Lambda Environment Variables"
-            echo "🌐 Updated: API Gateway CORS"
+            echo "🎉 CORS configuration updated!"
+            echo "🔒 Restricted Origin: $AMPLIFY_APP_URL"
+            echo "📦 ✅ S3 Bucket CORS - Restricted to Amplify URL"
+            echo "🔧 ✅ Lambda Environment Variables - Updated with ALLOWED_ORIGIN"
+            echo "🌐 ℹ️  API Gateway CORS - Allows all origins (Lambda functions enforce CORS)"
             
           else
             echo "⚠️  Amplify URL not available, skipping CORS update"

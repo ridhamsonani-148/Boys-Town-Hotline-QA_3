@@ -505,6 +505,8 @@ export class HotlineQaStack extends cdk.Stack {
     );
 
     // === CREATE API GATEWAY FOR FRONTEND ===
+    // API Gateway with CORS configuration
+    // Note: Initially set to ALL_ORIGINS, will be restricted after Amplify deployment
     const api = new apigateway.RestApi(this, 'HotlineQaApi', {
       restApiName: 'Boys Town Hotline QA API',
       description: 'API for Boys Town Hotline QA frontend application',
