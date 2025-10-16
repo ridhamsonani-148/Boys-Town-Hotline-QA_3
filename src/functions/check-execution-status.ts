@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { SFNClient, ListExecutionsCommand, DescribeExecutionCommand } from '@aws-sdk/client-sfn';
 
 const sfnClient = new SFNClient({});
-const { STATE_MACHINE_ARN } = process.env;
+const { STATE_MACHINE_ARN, ALLOWED_ORIGIN } = process.env;
 
 if (!STATE_MACHINE_ARN) {
   throw new Error('Required environment variable STATE_MACHINE_ARN must be set');
@@ -57,9 +57,11 @@ function validateExecutionArn(executionArn: string): string {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
   
+  const allowedOrigin = ALLOWED_ORIGIN || '*';
+
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
   };

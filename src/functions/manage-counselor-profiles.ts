@@ -10,7 +10,7 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 const dynamoClient = new DynamoDBClient({});
-const { COUNSELOR_PROFILES_TABLE, EVALUATIONS_TABLE } = process.env;
+const { COUNSELOR_PROFILES_TABLE, EVALUATIONS_TABLE, ALLOWED_ORIGIN } = process.env;
 
 if (!COUNSELOR_PROFILES_TABLE || !EVALUATIONS_TABLE) {
   throw new Error('Required environment variables COUNSELOR_PROFILES_TABLE and EVALUATIONS_TABLE must be set');
@@ -99,10 +99,10 @@ function validateBoolean(value: any, fieldName: string): boolean {
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
-  
+  const allowedOrigin = ALLOWED_ORIGIN || '*';
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
   };

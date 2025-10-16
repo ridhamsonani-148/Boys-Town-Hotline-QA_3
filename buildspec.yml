@@ -1,9 +1,5 @@
 version: 0.2
 
-# Boys Town Hotline QA - Simplified CodeBuild Deployment
-# This buildspec works with the deploy.sh script
-# Security Note: Sensitive information like GitHub tokens and AWS account details are redacted from CloudWatch logs
-
 phases:
   install:
     runtime-versions:
@@ -14,6 +10,8 @@ phases:
       - npm install -g aws-cdk@latest
       - echo "Installing project dependencies..."
       - npm install
+      - echo "Installing jq for JSON processing..."
+      - yum install -y jq 2>/dev/null || apt-get update && apt-get install -y jq 2>/dev/null || echo "jq installation skipped"
 
   pre_build:
     commands:
@@ -22,12 +20,12 @@ phases:
       - aws sts get-caller-identity --query 'Account' --output text > /dev/null 2>&1 && echo "✅ AWS CLI configured" || (echo "❌ AWS CLI not configured" && exit 1)
       - echo ""
       - echo "📋 Environment Configuration:"
-      - echo "COMPANY_NAME:$COMPANY_NAME"
-      - echo "GITHUB_OWNER:$GITHUB_OWNER"
-      - echo "GITHUB_REPO:$GITHUB_REPO"
-      - echo "GITHUB_TOKEN_SECRET:[REDACTED]"
-      - echo "AWS_REGION:$AWS_REGION"
-      - echo "ACTION:$ACTION"
+      - echo "COMPANY_NAME: $COMPANY_NAME"
+      - echo "GITHUB_OWNER: $GITHUB_OWNER"
+      - echo "GITHUB_REPO: $GITHUB_REPO"
+      - echo "GITHUB_TOKEN_SECRET: [REDACTED]"
+      - echo "AWS_REGION: $AWS_REGION"
+      - echo "ACTION: $ACTION"
       - echo ""
       - echo "📦 Building TypeScript project..."
       - npm run build
@@ -38,7 +36,7 @@ phases:
       - echo "🏗️  Build phase started on $(date)"
       - echo "Setting up CDK environment..."
       - ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-      - echo "Account:[REDACTED], Region:$AWS_REGION"
+      - echo "Account: [REDACTED], Region: $AWS_REGION"
       
       - echo "🔧 Checking CDK bootstrap status..."
       - |
@@ -91,7 +89,7 @@ phases:
             --context githubTokenSecretName=$GITHUB_TOKEN_SECRET \
             --require-approval never
           
-          echo "✅ Deployment completed successfully!"
+          echo "✅ Initial deployment completed successfully!"
         fi
 
   post_build:
@@ -99,54 +97,154 @@ phases:
       - echo "📋 Post-build phase started on $(date)"
       - |
         if [ "$ACTION" = "deploy" ]; then
-          echo "📊 Deployment Summary:"
-          echo "======================"
+          echo "🔄 Starting automated CORS configuration update..."
+          
+          # Get deployment outputs for CORS update
+          STACK_NAME="HotlineQaStack-prod"
+          echo "📊 Retrieving deployment outputs from stack: $STACK_NAME"
+          
+          BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_REGION --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
+          AMPLIFY_APP_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_REGION --query "Stacks[0].Outputs[?OutputKey=='AmplifyAppUrl'].OutputValue" --output text)
+          
+          echo "📋 CORS Update Configuration:"
+          echo "S3 Bucket: $BUCKET_NAME"
+          echo "Amplify URL: $AMPLIFY_APP_URL"
+          
+          if [ ! -z "$AMPLIFY_APP_URL" ] && [ "$AMPLIFY_APP_URL" != "None" ]; then
+            echo "🔒 Updating CORS configuration to restrict to: $AMPLIFY_APP_URL"
+            
+            # Update S3 CORS
+            echo "📦 Updating S3 CORS configuration..."
+            aws s3api put-bucket-cors \
+              --bucket "$BUCKET_NAME" \
+              --cors-configuration '{
+                "CORSRules": [
+                  {
+                    "AllowedHeaders": ["*"],
+                    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+                    "AllowedOrigins": ["'"$AMPLIFY_APP_URL"'"],
+                    "MaxAgeSeconds": 3000,
+                    "ExposeHeaders": ["ETag", "x-amz-server-side-encryption"]
+                  }
+                ]
+              }' \
+              --region "$AWS_REGION"
+            
+            echo "✅ S3 CORS updated successfully"
+            
+            # Update Lambda environment variables
+            echo "🔧 Updating Lambda function environment variables..."
+            
+            # List of Lambda functions to update (match your CDK stack)
+            LAMBDA_FUNCTIONS=(
+              "StartWorkflowFunction"
+              "TranscribeFunction"
+              "CheckTranscribeStatusFunction"
+              "FormatFunction"
+              "AnalyzeLLMFunction"
+              "AggregateScoresFunction"
+              "UpdateCounselorRecordsFunction"
+              "ManageCounselorProfilesFunction"
+              "GeneratePresignedUrlFunction"
+              "GetResultsFunction"
+              "GetCounselorDataFunction"
+              "GetAnalysisResultsFunction"
+              "CheckExecutionStatusFunction"
+            )
+            
+            for FUNCTION_BASE_NAME in "${LAMBDA_FUNCTIONS[@]}"; do
+              # Get the actual function name from CloudFormation outputs
+              FUNCTION_OUTPUT_KEY="${FUNCTION_BASE_NAME}Name"
+              ACTUAL_FUNCTION_NAME=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_REGION --query "Stacks[0].Outputs[?OutputKey=='$FUNCTION_OUTPUT_KEY'].OutputValue" --output text)
+              
+              if [ ! -z "$ACTUAL_FUNCTION_NAME" ] && [ "$ACTUAL_FUNCTION_NAME" != "None" ]; then
+                echo "  🔄 Updating: $ACTUAL_FUNCTION_NAME"
+                
+                # Get current environment variables
+                CURRENT_ENV=$(aws lambda get-function-configuration --function-name "$ACTUAL_FUNCTION_NAME" --region "$AWS_REGION" --query 'Environment.Variables' --output json 2>/dev/null || echo "{}")
+                
+                if [ "$CURRENT_ENV" != "{}" ]; then
+                  # Update with ALLOWED_ORIGIN using jq
+                  UPDATED_ENV=$(echo "$CURRENT_ENV" | jq --arg origin "$AMPLIFY_APP_URL" '. + {ALLOWED_ORIGIN: $origin}')
+                  
+                  # Update Lambda configuration
+                  aws lambda update-function-configuration \
+                    --function-name "$ACTUAL_FUNCTION_NAME" \
+                    --environment "Variables=$UPDATED_ENV" \
+                    --region "$AWS_REGION" > /dev/null 2>&1
+                  
+                  if [ $? -eq 0 ]; then
+                    echo "    ✅ Environment updated for $ACTUAL_FUNCTION_NAME"
+                  else
+                    echo "    ⚠️  Could not update environment for $ACTUAL_FUNCTION_NAME"
+                  fi
+                else
+                  echo "    ⚠️  No environment variables found for $ACTUAL_FUNCTION_NAME"
+                fi
+              else
+                echo "  ⚠️  Function not found in outputs: $FUNCTION_BASE_NAME"
+              fi
+            done
+            
+            echo "✅ Lambda environment variables update completed"
+            
+            # Update API Gateway CORS (if possible)
+            echo "🌐 Attempting to update API Gateway CORS..."
+            API_ID=$(aws apigateway get-rest-apis --region "$AWS_REGION" --query "items[?name=='Boys Town Hotline QA API'].id" --output text)
+            
+            if [ ! -z "$API_ID" ] && [ "$API_ID" != "None" ]; then
+              echo "  🔄 API Gateway ID: $API_ID"
+              echo "  📝 Note: API Gateway CORS update requires manual intervention or stack update"
+              echo "  💡 Manual steps:"
+              echo "    1. Go to API Gateway Console → $API_ID"
+              echo "    2. Select your API → Resources"
+              echo "    3. Select ANY method → Enable CORS"
+              echo "    4. Set Access-Control-Allow-Origin: $AMPLIFY_APP_URL"
+              echo "    5. Deploy API"
+            else
+              echo "  ⚠️  API Gateway not found for CORS update"
+            fi
+            
+            echo ""
+            echo "🎉 CORS configuration successfully restricted!"
+            echo "🔒 Origin: $AMPLIFY_APP_URL"
+            echo "📦 Updated: S3 Bucket CORS"
+            echo "🔧 Updated: Lambda Environment Variables"
+            echo "🌐 Note: API Gateway may require manual update"
+            
+          else
+            echo "⚠️  Amplify URL not available, skipping CORS update"
+            echo "💡 This usually means the frontend deployment is still in progress"
+            echo "🔧 You can run the CORS update manually later using the update-cors script"
+          fi
+          
           echo ""
-          echo "🔗 CloudFormation Stack Outputs:"
-          echo "Note: The following outputs contain deployment URLs and endpoints"
+          echo "📊 Final Deployment Summary:"
+          echo "============================"
           aws cloudformation describe-stacks \
             --stack-name HotlineQaStack-prod \
-            --region $AWS_REGION \
-            --query 'Stacks[0].Outputs' \
-            --output table || echo "Stack outputs not available yet"
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey != `StartWorkflowFunctionName` && OutputKey != `TranscribeFunctionName` && OutputKey != `CheckTranscribeStatusFunctionName` && OutputKey != `FormatFunctionName` && OutputKey != `AnalyzeLLMFunctionName` && OutputKey != `AggregateScoresFunctionName` && OutputKey != `UpdateCounselorRecordsFunctionName` && OutputKey != `ManageCounselorProfilesFunctionName` && OutputKey != `GeneratePresignedUrlFunctionName` && OutputKey != `GetResultsFunctionName` && OutputKey != `GetCounselorDataFunctionName` && OutputKey != `GetAnalysisResultsFunctionName` && OutputKey != `CheckExecutionStatusFunctionName`]' \
+            --output table || echo "Stack outputs not available or filtered"
           
           echo ""
           echo "🎉 Boys Town Hotline QA System Deployed Successfully!"
           echo ""
-          echo "📋 What was deployed:"
-          echo "✅ S3 bucket for audio files and results"
-          echo "✅ Lambda functions for processing pipeline"
-          echo "✅ Step Functions workflow orchestration"
-          echo "✅ DynamoDB tables for counselor data"
-          echo "✅ API Gateway for REST endpoints"
-          echo "✅ Amplify frontend application"
-          echo "✅ Transcribe Call Analytics integration"
-          echo "✅ Bedrock AI analysis capabilities"
-          echo ""
           echo "📋 Next Steps:"
-          echo "1. Access your frontend via the Amplify URL (shown above)"
-          echo "2. Test API endpoints using the API Gateway URL"
-          echo "3. Upload test audio files (.wav format) to S3 bucket 'records/' folder"
-          echo "4. Monitor processing in Step Functions console"
-          echo "5. View results in DynamoDB tables and frontend interface"
-          echo ""
-          echo "🔗 Management Console URLs:"
-          echo "CloudFormation: https://console.aws.amazon.com/cloudformation/home?region=$AWS_REGION"
-          echo "Step Functions: https://console.aws.amazon.com/states/home?region=$AWS_REGION"
-          echo "API Gateway: https://console.aws.amazon.com/apigateway/home?region=$AWS_REGION"
-          echo "Amplify: https://console.aws.amazon.com/amplify/home?region=$AWS_REGION"
+          echo "1. Access your frontend: $AMPLIFY_APP_URL"
+          echo "2. Test file upload functionality"
+          echo "3. Monitor processing in Step Functions console"
+          echo "4. Check CORS is working by testing from different domains"
+          
         else
           echo "🗑️  Destruction completed successfully!"
           echo "All AWS resources have been removed."
         fi
-      
-      - echo "📋 CDK $ACTION process completed on $(date)"
 
 artifacts:
   files:
     - '**/*'
   base-directory: 'cdk.out'
-  name: boys-town-hotline-qa-artifacts
 
 cache:
   paths:

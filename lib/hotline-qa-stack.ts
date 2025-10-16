@@ -276,6 +276,7 @@ export class HotlineQaStack extends cdk.Stack {
       environment: {
         COUNSELOR_PROFILES_TABLE: this.counselorProfilesTable.tableName,
         EVALUATIONS_TABLE: this.counselorEvaluationsTable.tableName,
+        ALLOWED_ORIGIN: '*',
       },
       description: 'Manages counselor profiles via API (GET, PUT, POST operations)',
     });
@@ -288,7 +289,8 @@ export class HotlineQaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
-        FILE_MAPPING_TABLE: fileMappingsTable.tableName
+        FILE_MAPPING_TABLE: fileMappingsTable.tableName,
+        ALLOWED_ORIGIN: '*', // CORS configuration for API Gateway
       },
       description: 'Generates presigned URLs for S3 file uploads',
     });
@@ -301,6 +303,7 @@ export class HotlineQaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
+        ALLOWED_ORIGIN: '*',
       },
       description: 'Gets analysis results from S3',
     });
@@ -313,6 +316,7 @@ export class HotlineQaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         EVALUATIONS_TABLE: this.counselorEvaluationsTable.tableName,
+        ALLOWED_ORIGIN: '*',
       },
       description: 'Gets all counselor evaluation data from DynamoDB',
     });
@@ -325,6 +329,7 @@ export class HotlineQaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: this.storageBucket.bucketName,
+        ALLOWED_ORIGIN: '*',
       },
       description: 'Gets specific analysis results by file ID',
     });
@@ -337,6 +342,7 @@ export class HotlineQaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         STATE_MACHINE_ARN: '', // Will be set after state machine is created
+        ALLOWED_ORIGIN: '*',
       },
       description: 'Checks Step Functions execution status for uploaded files',
     });

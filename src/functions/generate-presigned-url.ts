@@ -8,7 +8,7 @@ import { marshall } from '@aws-sdk/util-dynamodb';
 
 const s3Client = new S3Client({});
 const dynamoClient = new DynamoDBClient({});
-const { BUCKET_NAME, FILE_MAPPING_TABLE } = process.env;
+const { BUCKET_NAME, FILE_MAPPING_TABLE, ALLOWED_ORIGIN } = process.env;
 
 
 if (!BUCKET_NAME) {
@@ -78,9 +78,11 @@ function validateFileType(fileType: string): string {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
   
+  const allowedOrigin = ALLOWED_ORIGIN || '*';
+
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
   };

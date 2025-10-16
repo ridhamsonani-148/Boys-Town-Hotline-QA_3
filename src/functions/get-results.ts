@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 
 const s3Client = new S3Client({});
-const { BUCKET_NAME } = process.env;
+const { BUCKET_NAME, ALLOWED_ORIGIN } = process.env;
 
 if (!BUCKET_NAME) {
   throw new Error('Required environment variable BUCKET_NAME must be set');
@@ -30,10 +30,11 @@ function validateFileName(fileName: string): string {
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
-  
+  const allowedOrigin = ALLOWED_ORIGIN || '*';
+
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
   };

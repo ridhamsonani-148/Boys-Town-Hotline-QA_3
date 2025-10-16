@@ -3,7 +3,7 @@ import { DynamoDBClient, ScanCommand } from '@aws-sdk/client-dynamodb';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 
 const dynamoClient = new DynamoDBClient({});
-const { EVALUATIONS_TABLE } = process.env;
+const { EVALUATIONS_TABLE , ALLOWED_ORIGIN} = process.env;
 
 if (!EVALUATIONS_TABLE) {
   throw new Error('Required environment variable EVALUATIONS_TABLE must be set');
@@ -12,9 +12,11 @@ if (!EVALUATIONS_TABLE) {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Received event:', JSON.stringify(event, null, 2));
   
+  const allowedOrigin = ALLOWED_ORIGIN || '*';
+
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
   };
