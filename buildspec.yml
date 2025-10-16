@@ -157,32 +157,52 @@ phases:
                 CURRENT_ENV=$(aws lambda get-function-configuration --function-name "$ACTUAL_FUNCTION_NAME" --region "$AWS_REGION" --query 'Environment.Variables' --output json 2>/dev/null || echo "{}")
                 
                 if [ "$CURRENT_ENV" != "{}" ] && [ "$CURRENT_ENV" != "null" ]; then
+                  echo "    📝 Current ALLOWED_ORIGIN: $(echo "$CURRENT_ENV" | jq -r '.ALLOWED_ORIGIN // "not set"')"
+                  echo "    📝 Target ALLOWED_ORIGIN: $AMPLIFY_APP_URL"
+                  
                   # Update with ALLOWED_ORIGIN using jq
                   UPDATED_ENV=$(echo "$CURRENT_ENV" | jq --arg origin "$AMPLIFY_APP_URL" '. + {ALLOWED_ORIGIN: $origin}')
                   
+                  # Debug: Show the updated JSON (first 200 chars)
+                  echo "    🔍 Updated env preview: $(echo "$UPDATED_ENV" | head -c 200)..."
+                  
                   # Update Lambda configuration with retry logic
-                  MAX_RETRIES=3
+                  MAX_RETRIES=5
                   RETRY_COUNT=0
                   UPDATE_SUCCESS=false
                   
                   while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                    if aws lambda update-function-configuration \
+                    UPDATE_OUTPUT=$(aws lambda update-function-configuration \
                       --function-name "$ACTUAL_FUNCTION_NAME" \
                       --environment "Variables=$UPDATED_ENV" \
-                      --region "$AWS_REGION" 2>&1 | grep -q "ResourceConflictException"; then
-                      echo "    ⏳ Function is updating, waiting 5 seconds..."
-                      sleep 5
+                      --region "$AWS_REGION" 2>&1)
+                    UPDATE_EXIT_CODE=$?
+                    
+                    if [ $UPDATE_EXIT_CODE -eq 0 ]; then
+                      UPDATE_SUCCESS=true
+                      echo "    ✅ Environment updated successfully"
+                      break
+                    elif echo "$UPDATE_OUTPUT" | grep -q "ResourceConflictException"; then
+                      echo "    ⏳ Function is updating, waiting 10 seconds... (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)"
+                      sleep 10
                       RETRY_COUNT=$((RETRY_COUNT + 1))
                     else
-                      UPDATE_SUCCESS=true
+                      echo "    ❌ Update failed: $UPDATE_OUTPUT"
                       break
                     fi
                   done
                   
-                  if [ "$UPDATE_SUCCESS" = true ]; then
-                    echo "    ✅ Environment updated for $ACTUAL_FUNCTION_NAME"
+                  if [ "$UPDATE_SUCCESS" != true ]; then
+                    echo "    ⚠️  Could not update environment for $ACTUAL_FUNCTION_NAME"
                   else
-                    echo "    ⚠️  Could not update environment for $ACTUAL_FUNCTION_NAME (may be in use)"
+                    # Verify the update
+                    sleep 2
+                    VERIFY_ENV=$(aws lambda get-function-configuration --function-name "$ACTUAL_FUNCTION_NAME" --region "$AWS_REGION" --query 'Environment.Variables.ALLOWED_ORIGIN' --output text 2>/dev/null)
+                    if [ "$VERIFY_ENV" = "$AMPLIFY_APP_URL" ]; then
+                      echo "    ✅ Verified: ALLOWED_ORIGIN = $AMPLIFY_APP_URL"
+                    else
+                      echo "    ⚠️  Verification failed: ALLOWED_ORIGIN = $VERIFY_ENV (expected: $AMPLIFY_APP_URL)"
+                    fi
                   fi
                 else
                   echo "    ⚠️  No environment variables found for $ACTUAL_FUNCTION_NAME"
