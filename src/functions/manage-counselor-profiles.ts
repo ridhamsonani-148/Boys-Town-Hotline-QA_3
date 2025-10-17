@@ -38,7 +38,11 @@ function validateCounselorId(counselorId: string): string {
   
   // Check for malicious patterns BEFORE sanitization
   if (counselorId !== counselorId.replace(/[^a-zA-Z0-9_-]/g, '')) {
-    console.error('SECURITY ALERT: Invalid characters in CounselorId', { counselorId });
+    console.error('SECURITY ALERT: Invalid characters in CounselorId', { 
+      length: counselorId.length,
+      hasSpecialChars: true,
+      timestamp: new Date().toISOString()
+    });
     throw new Error('CounselorId contains invalid characters - only alphanumeric, underscore, and hyphen allowed');
   }
   
@@ -57,7 +61,11 @@ function validateCounselorName(counselorName: string): string {
   // Check for malicious patterns BEFORE sanitization
   const cleanName = counselorName.replace(/[^a-zA-Z\s'-]/g, '').trim();
   if (cleanName !== counselorName.trim()) {
-    console.error('SECURITY ALERT: Invalid characters in CounselorName', { counselorName });
+    console.error('SECURITY ALERT: Invalid characters in CounselorName', { 
+      length: counselorName.length,
+      hasSpecialChars: true,
+      timestamp: new Date().toISOString()
+    });
     throw new Error('CounselorName contains invalid characters - only letters, spaces, hyphens, and apostrophes allowed');
   }
   

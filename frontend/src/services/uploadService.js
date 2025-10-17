@@ -240,7 +240,7 @@ export const uploadService = {
   async getAnalysisResults(fileId) {
     //console.log(`Fetching analysis results for fileId: ${fileId}`);
     try {
-      const response = await fetch(`${API_BASE_URL}/analysis/${fileId}`, {
+      const response = await fetch(`${API_BASE_URL}analysis/${fileId}`, {
         headers: {
           "Content-Type": "application/json",
         },
