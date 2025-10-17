@@ -52,121 +52,8 @@ interface FormattedTranscript {
   }>;
 }
 
-// Validation functions for formatted transcript
-function validateFormattedTranscript(data: any): FormattedTranscript {
-  if (!data || typeof data !== "object") {
-    throw new Error("Invalid formatted transcript structure");
-  }
-
-  // Validate summary
-  if (typeof data.summary !== "string") {
-    throw new Error("Summary must be a string");
-  }
-
-  // Check for malicious content in summary
-  const hasMaliciousSummary =
-    /<script[^>]*>/gi.test(data.summary) ||
-    /<iframe[^>]*>/gi.test(data.summary) ||
-    /javascript:/gi.test(data.summary) ||
-    /on\w+\s*=/gi.test(data.summary);
-
-  if (hasMaliciousSummary) {
-    console.error("SECURITY ALERT: Malicious content detected in summary");
-    throw new Error(
-      "Malicious content detected in summary - possible tampering"
-    );
-  }
-
-  if (data.summary.length > 5000) {
-    throw new Error("Summary exceeds maximum length of 5000 characters");
-  }
-
-  // Validate transcript array
-  if (!Array.isArray(data.transcript)) {
-    throw new Error("Transcript must be an array");
-  }
-  if (data.transcript.length === 0) {
-    throw new Error("Transcript array is empty");
-  }
-  if (data.transcript.length > 10000) {
-    throw new Error("Transcript array too large");
-  }
-
-  // Validate each transcript entry
-  const validatedTranscript = data.transcript.map(
-    (item: any, index: number) => {
-      if (!item || typeof item !== "object") {
-        throw new Error(`Invalid transcript item at index ${index}`);
-      }
-
-      // Validate speaker
-      if (typeof item.speaker !== "string") {
-        throw new Error(`Invalid speaker at index ${index}`);
-      }
-      const sanitizedSpeaker = item.speaker
-        .slice(0, 20)
-        .replace(/[^A-Z_]/g, "");
-
-      // Validate text
-      if (typeof item.text !== "string") {
-        throw new Error(`Invalid text at index ${index}`);
-      }
-
-      // Check for malicious content patterns
-      const hasMaliciousText =
-        /<script[^>]*>/gi.test(item.text) ||
-        /<iframe[^>]*>/gi.test(item.text) ||
-        /javascript:/gi.test(item.text) ||
-        /on\w+\s*=/gi.test(item.text);
-
-      if (hasMaliciousText) {
-        console.error(
-          "SECURITY ALERT: Malicious content detected in transcript",
-          {
-            index,
-            speaker: item.speaker,
-            textPreview: item.text.slice(0, 100),
-          }
-        );
-        throw new Error(
-          `Malicious content detected at transcript index ${index} - possible tampering`
-        );
-      }
-
-      if (item.text.length > 10000) {
-        throw new Error(
-          `Text at index ${index} exceeds maximum length of 10000 characters`
-        );
-      }
-
-      // Validate timestamps (format: MM:SS.mmm)
-      const timeRegex = /^\d{2}:\d{2}\.\d{3}$/;
-      if (
-        typeof item.beginTime !== "string" ||
-        !timeRegex.test(item.beginTime)
-      ) {
-        throw new Error(`Invalid beginTime format at index ${index}`);
-      }
-      if (typeof item.endTime !== "string" || !timeRegex.test(item.endTime)) {
-        throw new Error(`Invalid endTime format at index ${index}`);
-      }
-
-      // If we reach here, all validation passed - return validated data as-is
-      return {
-        speaker: sanitizedSpeaker,
-        text: item.text, // Validated (not sanitized) - passed all checks above
-        beginTime: item.beginTime,
-        endTime: item.endTime,
-      };
-    }
-  );
-
-  // All validation passed - return validated data
-  return {
-    summary: data.summary, // Validated (not sanitized) - passed all checks above
-    transcript: validatedTranscript,
-  };
-}
+// No validation needed - formatted transcripts come from internal processing
+// and are only stored in S3, not DynamoDB
 
 export const handler = async (event: AnalyzeEvent): Promise<any> => {
   console.log("Received event:", JSON.stringify(event, null, 2));
@@ -205,11 +92,8 @@ export const handler = async (event: AnalyzeEvent): Promise<any> => {
       throw new Error(`Empty response body for ${formattedKey}`);
     }
 
-    // Parse the formatted transcript
-    const rawData = JSON.parse(body);
-
-    // Validate the formatted transcript before processing
-    const formattedTranscript = validateFormattedTranscript(rawData);
+    // Parse the formatted transcript (no validation needed - internal processing data)
+    const formattedTranscript: FormattedTranscript = JSON.parse(body);
 
     // Create the result key in the results/llmOutput folder
     const resultKey = formattedKey
