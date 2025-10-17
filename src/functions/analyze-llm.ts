@@ -12,7 +12,7 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 
 const s3Client = new S3Client({});
-const bedrockClient = new BedrockRuntimeClient({});
+const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION});
 const { BUCKET_NAME } = process.env;
 
 if (!BUCKET_NAME) {
@@ -20,7 +20,7 @@ if (!BUCKET_NAME) {
 }
 
 // Model ID for Amazon Nova Pro
-const MODEL_ID = "us.amazon.nova-pro-v1:0";
+const MODEL_ID = "amazon.nova-pro-v1:0";
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
