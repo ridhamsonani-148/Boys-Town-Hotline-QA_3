@@ -19,8 +19,11 @@ if (!BUCKET_NAME) {
   throw new Error("Required environment variable BUCKET_NAME must be set");
 }
 
-// Model ID for Amazon Nova Pro
-const MODEL_ID = "amazon.nova-pro-v1:0";
+// Model IDs for Amazon Nova Pro - try foundation model first, then inference profile
+const MODEL_IDS = [
+  "amazon.nova-pro-v1:0", // Foundation model (works in us-east-1)
+  "us.amazon.nova-pro-v1:0" // Inference profile (works in us-west-2 and other regions)
+];
 
 // Input from Step Functions or S3 event
 interface AnalyzeEvent {
@@ -250,6 +253,29 @@ async function analyzeTranscript(
     .map((item) => `${item.beginTime} ${item.speaker}: ${item.text}`)
     .join("\n\n");
 
+  // Try each model ID in sequence until one works
+  let lastError: Error | null = null;
+  
+  for (const modelId of MODEL_IDS) {
+    try {
+      console.log(`Attempting to use model: ${modelId}`);
+      return await callBedrockModel(modelId, formattedTranscript, transcriptText);
+    } catch (error: any) {
+      console.warn(`Failed to use model ${modelId}:`, error.message);
+      lastError = error;
+      // Continue to next model
+    }
+  }
+  
+  // If all models failed, throw the last error
+  throw new Error(`All model attempts failed. Last error: ${lastError?.message}`);
+}
+
+async function callBedrockModel(
+  modelId: string,
+  formattedTranscript: FormattedTranscript,
+  transcriptText: string
+): Promise<any> {
   // Create the system message
   const systemMessage = `You are an expert QA evaluator for Boys Town National Hotline, a crisis counseling service that helps people in distress. 
   Your task is to objectively evaluate counselor performance based on call transcripts using the Boys Town evaluation rubric.
@@ -1627,7 +1653,7 @@ async function analyzeTranscript(
     // Use the Conversational API with the correct structure
     // Move system prompt to top-level system field, not in messages array
     const command = new ConverseCommand({
-      modelId: MODEL_ID,
+      modelId: modelId,
 
       // Top-level system prompt as an array of SystemContentBlock
       system: [{ text: systemMessage }] as SystemContentBlock[],

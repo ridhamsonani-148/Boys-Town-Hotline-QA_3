@@ -381,14 +381,18 @@ export class HotlineQaStack extends cdk.Stack {
       }
     }));
 
-const bedrockModelArn = `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/amazon.nova-pro-v1:0`;
-    // Grant LLM analysis function permission to use Bedrock
-    analyzeLLMFunction.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'bedrock:InvokeModel',
-      ],
-      resources: [bedrockModelArn], // You can scope this down to specific model ARNs if needed
-    }));
+    // Support both foundation model and inference profile ARNs for cross-region compatibility
+    analyzeLLMFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          // Foundation model ARN (works in us-east-1)
+          `arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0`,
+          // Inference profile ARN (works in us-west-2 and other regions)
+          `arn:aws:bedrock:*:${cdk.Aws.ACCOUNT_ID}:inference-profile/us.amazon.nova-pro-v1:0`,
+        ],
+      })
+    );
 
     // Grant Lambda access to S3
     this.storageBucket.grantReadWrite(transcribeFunction);
